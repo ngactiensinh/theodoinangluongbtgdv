@@ -74,31 +74,37 @@ try:
     if search:
         mask = mask & df['ho_ten'].str.contains(search, case=False)
     
-    df_filtered = df[mask].copy()
+    # --- ĐOẠN CODE HIỂN THỊ BẢNG ĐÃ FIX LỖI THIẾU CỘT ---
+try:
+    df_final = df[mask].copy()
 
-    # --- 6. HIỂN THỊ DANH SÁCH ---
+    # Kiểm tra an toàn: Nếu thiếu cột 'loai_nang_luong' thì tự tạo cột ảo để không bị lỗi
+    if 'loai_nang_luong' not in df_final.columns:
+        df_final['loai_nang_luong'] = 'Thường xuyên'
+
+    # Tạo cột hiển thị tên có ngôi sao 🌟
+    df_final['ho_ten_display'] = df_final.apply(
+        lambda x: f"🌟 {x['ho_ten']}" if str(x.get('loai_nang_luong', '')) == 'Trước thời hạn' else x['ho_ten'], 
+        axis=1
+    )
+
     st.subheader("📋 Danh sách chi tiết")
 
-    # Hàm định dạng dòng
+    # Hàm định dạng dòng (Dùng .get để an toàn tuyệt đối)
     def style_rows(row):
-        styles = [''] * len(row)
-        if row['loai_nang_luong'] == 'Trước thời hạn':
-            styles = ['background-color: #fff9c4'] * len(row) # Nền vàng
-        return styles
+        if str(row.get('loai_nang_luong', '')) == 'Trước thời hạn':
+            return ['background-color: #fff9c4'] * len(row)
+        return [''] * len(row)
 
     def color_status(val):
         if val == "Sắp đến hạn": return 'color: #C8102E; font-weight: bold;'
         return 'color: #28a745;'
 
-    # Gắn sao cho người được ưu tiên
-    df_filtered['ho_ten_display'] = df_filtered.apply(
-        lambda x: f"🌟 {x['ho_ten']}" if x['loai_nang_luong'] == 'Trước thời hạn' else x['ho_ten'], axis=1
-    )
-
-    cols_to_show = ['stt', 'ho_ten_display', 'chuc_vu', 'loai_nang_luong', 'bac_luong', 'ngay_du_kien', 'trang_thai']
+    # Chỉ hiển thị các cột chắc chắn có trong file CSV của sếp
+    cols_to_show = ['stt', 'ho_ten_display', 'chuc_vu', 'bac_luong', 'he_so_hien_tai', 'ngay_du_kien', 'trang_thai']
     
     st.dataframe(
-        df_filtered[cols_to_show].style
+        df_final[cols_to_show].style
         .apply(style_rows, axis=1)
         .map(color_status, subset=['trang_thai']),
         use_container_width=True,
@@ -107,16 +113,12 @@ try:
             "stt": "STT",
             "ho_ten_display": "HỌ VÀ TÊN",
             "chuc_vu": "CHỨC VỤ",
-            "loai_nang_luong": "LOẠI NÂNG LƯƠNG",
             "bac_luong": "BẬC",
+            "he_so_hien_tai": "HỆ SỐ",
             "ngay_du_kien": "NGÀY DỰ KIẾN",
             "trang_thai": "TRẠNG THÁI"
         }
     )
-
-    # Nút bấm xuất dữ liệu
-    st.download_button("📥 Tải danh sách (CSV)", df_filtered.to_csv(index=False).encode('utf-8-sig'), "danh_sach_nang_luong.csv", "text/csv")
-
 except Exception as e:
-    st.error(f"Lỗi hệ thống: {e}")
+    st.error(f"Lỗi hiển thị bảng: {e}")
     st.info("💡 Sếp hãy kiểm tra lại bảng 'theo_doi_luong' trên Supabase đã đầy đủ dữ liệu chưa nhé.")
