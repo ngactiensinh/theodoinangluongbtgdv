@@ -9,7 +9,7 @@ KEY = "DÁN_KEY_CỦA_SẾP_VÀO_ĐÂY"
 def main():
     st.set_page_config(page_title="Quản lý Lương Tuyên Quang", layout="wide")
 
-    # Banner tiêu đề - Dùng text thuần để tuyệt đối không lỗi encode
+    # Header đơn giản
     st.markdown("""
         <div style="background-color: #004B87; padding: 20px; border-radius: 10px; color: white; text-align: center;">
             <h1 style="color: white; margin:0;">HỆ THỐNG QUẢN LÝ LƯƠNG 4.0</h1>
@@ -18,54 +18,52 @@ def main():
     """, unsafe_allow_html=True)
 
     try:
-        # Kết nối
+        # Khởi tạo kết nối
         supabase = create_client(URL, KEY)
         
-        # Lấy dữ liệu
-        res = supabase.table("theo_doi_luong").select("*").execute()
+        # Lấy dữ liệu dạng thô (Raw) để tránh lỗi decode sớm
+        response = supabase.table("theo_doi_luong").select("*").execute()
         
-        if res.data:
-            # XỬ LÝ DỮ LIỆU AN TOÀN: Ép toàn bộ về chuỗi và xử lý lỗi encode từng ô một
-            raw_data = []
-            for row in res.data:
-                clean_row = {}
-                for k, v in row.items():
-                    # Chuyển mọi giá trị về string và xử lý ký tự lạ
-                    clean_row[k] = str(v).encode('utf-8', 'ignore').decode('utf-8')
-                raw_data.append(clean_row)
+        if response.data:
+            # Chuyển đổi dữ liệu sang DataFrame và xử lý lỗi font từng cột
+            df = pd.DataFrame(response.data)
             
-            df = pd.DataFrame(raw_data)
+            # Tuyệt chiêu: Ép toàn bộ DataFrame sang chuỗi UTF-8
+            for col in df.columns:
+                df[col] = df[col].apply(lambda x: str(x).encode('utf-8', 'replace').decode('utf-8'))
 
-            # Chatbot thông báo
+            # Giao diện Chatbot
             st.write("")
             with st.chat_message("assistant"):
-                st.write("Chào Bạn Tuấn! Hệ thống đã xử lý xong dữ liệu tiếng Việt.")
+                st.write("Chào Bạn Tuấn! Dữ liệu đã được giải mã thành công.")
                 
+                # Tìm cột trạng thái (không phân biệt hoa thường, có dấu)
                 col_status = next((c for c in df.columns if 'trang' in c.lower()), None)
                 if col_status:
-                    sap_den_han = df[df[col_status].str.contains("Sắp đến hạn", na=False)]
-                    if not sap_den_han.empty:
-                        st.error(f"Có {len(sap_den_han)} đồng chí sắp đến hạn nâng lương sếp nhé!")
+                    den_han = df[df[col_status].str.contains("Sắp đến hạn", na=False)]
+                    if not den_han.empty:
+                        st.error(f"🚨 Có **{len(den_han)}** đồng chí sắp đến hạn nâng lương sếp ơi!")
             
             st.write("---")
             
             # Tìm kiếm
             col_name = next((c for c in df.columns if 'ho' in c.lower() or 'ten' in c.lower()), df.columns[0])
-            search = st.text_input("Tìm tên cán bộ:", placeholder="Nhập tên...")
+            search = st.text_input("🔍 Tìm tên cán bộ:", placeholder="Nhập tên cán bộ...")
             
             if search:
-                df = df[df[col_name].str.contains(search, case=False, na=False)]
-
-            # Hiển thị bảng
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            
+                df_search = df[df[col_name].str.contains(search, case=False, na=False)]
+                st.dataframe(df_search, use_container_width=True, hide_index=True)
+            else:
+                st.dataframe(df, use_container_width=True, hide_index=True)
+                
         else:
-            st.warning("Dữ liệu trên Supabase đang trống sếp ạ.")
+            st.warning("Dữ liệu trên hệ thống đang trống.")
 
     except Exception as e:
-        st.error("Hệ thống đang khởi động lại bảng mã. Sếp vui lòng chờ 10 giây rồi nhấn F5 nhé!")
-        # In lỗi ra console để sếp không bị màn hình đỏ
-        print(f"Log lỗi: {e}")
+        # Nếu vẫn lỗi, hiển thị thông tin để anh em mình cùng soi
+        st.error("Hệ thống đang gặp trục trặc về bảng mã tiếng Việt.")
+        st.write("Chi tiết lỗi gửi sếp:")
+        st.code(str(e))
 
 if __name__ == "__main__":
     main()
