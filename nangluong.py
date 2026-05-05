@@ -2,68 +2,53 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 
-# 1. THÔNG TIN KẾT NỐI
-URL = "https://qqzsdxhqrdfvxnlurnyb.supabase.co"
-KEY = "DÁN_KEY_CỦA_SẾP_VÀO_ĐÂY"
-
 def main():
-    st.set_page_config(page_title="Quản lý Lương Tuyên Quang", layout="wide")
+    st.set_page_config(page_title="Quan ly Luong", layout="wide")
 
-    # Header đơn giản
-    st.markdown("""
-        <div style="background-color: #004B87; padding: 20px; border-radius: 10px; color: white; text-align: center;">
-            <h1 style="color: white; margin:0;">HỆ THỐNG QUẢN LÝ LƯƠNG 4.0</h1>
-            <p style="color: white; margin:5px;">Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang</p>
-        </div>
-    """, unsafe_allow_html=True)
+    # Header dung Markdown co ban de tranh loi encode
+    st.title("HE THONG QUAN LY LUONG 4.0")
+    st.write("Ban Tuyen giao va Dan van Tinh uy Tuyen Quang")
 
     try:
-        # Khởi tạo kết nối
-        supabase = create_client(URL, KEY)
+        # Lay thong tin tu Secrets (Cach nay giup tranh loi ASCII truc tiep trong code)
+        url = st.secrets["SUPABASE_URL"]
+        key = st.secrets["SUPABASE_KEY"]
         
-        # Lấy dữ liệu dạng thô (Raw) để tránh lỗi decode sớm
-        response = supabase.table("theo_doi_luong").select("*").execute()
+        supabase = create_client(url, key)
         
-        if response.data:
-            # Chuyển đổi dữ liệu sang DataFrame và xử lý lỗi font từng cột
-            df = pd.DataFrame(response.data)
+        # Lay du lieu
+        res = supabase.table("theo_doi_luong").select("*").execute()
+        
+        if res.data:
+            df = pd.DataFrame(res.data)
             
-            # Tuyệt chiêu: Ép toàn bộ DataFrame sang chuỗi UTF-8
-            for col in df.columns:
-                df[col] = df[col].apply(lambda x: str(x).encode('utf-8', 'replace').decode('utf-8'))
-
-            # Giao diện Chatbot
-            st.write("")
-            with st.chat_message("assistant"):
-                st.write("Chào Bạn Tuấn! Dữ liệu đã được giải mã thành công.")
-                
-                # Tìm cột trạng thái (không phân biệt hoa thường, có dấu)
-                col_status = next((c for c in df.columns if 'trang' in c.lower()), None)
-                if col_status:
-                    den_han = df[df[col_status].str.contains("Sắp đến hạn", na=False)]
-                    if not den_han.empty:
-                        st.error(f"🚨 Có **{len(den_han)}** đồng chí sắp đến hạn nâng lương sếp ơi!")
+            # Chatbot thong bao
+            st.divider()
+            st.info("Chao Ban Tuan! He thong da ket noi thanh cong.")
             
-            st.write("---")
+            # Tim cot thong minh
+            col_status = next((c for c in df.columns if 'trang' in c.lower()), None)
+            if col_status:
+                df[col_status] = df[col_status].astype(str)
+                sap_den_han = df[df[col_status].str.contains("Sap den han", na=False)]
+                if not sap_den_han.empty:
+                    st.warning(f"Co {len(sap_den_han)} dong chi sap den han nang luong.")
             
-            # Tìm kiếm
+            # Tim kiem va hien thi
+            search = st.text_input("Tim ten can bo:")
             col_name = next((c for c in df.columns if 'ho' in c.lower() or 'ten' in c.lower()), df.columns[0])
-            search = st.text_input("🔍 Tìm tên cán bộ:", placeholder="Nhập tên cán bộ...")
             
             if search:
-                df_search = df[df[col_name].str.contains(search, case=False, na=False)]
-                st.dataframe(df_search, use_container_width=True, hide_index=True)
-            else:
-                st.dataframe(df, use_container_width=True, hide_index=True)
-                
+                df = df[df[col_name].astype(str).str.contains(search, case=False, na=False)]
+            
+            st.dataframe(df, use_container_width=True)
         else:
-            st.warning("Dữ liệu trên hệ thống đang trống.")
+            st.write("Chua co du lieu.")
 
     except Exception as e:
-        # Nếu vẫn lỗi, hiển thị thông tin để anh em mình cùng soi
-        st.error("Hệ thống đang gặp trục trặc về bảng mã tiếng Việt.")
-        st.write("Chi tiết lỗi gửi sếp:")
-        st.code(str(e))
+        st.error("Loi ket noi. Sep hay kiem tra lai phan Secrets nhe!")
+        # Khong in e ra de tranh loi encode tiep tuc
+        print(f"Log: {str(e)}")
 
 if __name__ == "__main__":
     main()
