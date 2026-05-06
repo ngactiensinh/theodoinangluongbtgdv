@@ -300,10 +300,19 @@ def main():
                 
                 with c_bieu_4:
                     # 4. Biểu đồ Mã ngạch (Bar ngang)
+                    # Ép kiểu toàn bộ Mã ngạch sang chuỗi (String) trước khi đếm
+                    df_chart['ma_ngach'] = df_chart['ma_ngach'].fillna("Chưa có").astype(str)
+                    
                     df_ma = df_chart['ma_ngach'].value_counts().reset_index()
                     df_ma.columns = ['Mã ngạch', 'Số lượng']
-                    fig_ma = px.bar(df_ma, x='Số lượng', y='Mã ngạch', orientation='h', title='4. Phân bổ theo Mã ngạch', text='Số lượng', color='Mã ngạch')
+                    
+                    fig_ma = px.bar(df_ma, x='Số lượng', y='Mã ngạch', orientation='h', 
+                                    title='4. Phân bổ theo Mã ngạch', text='Số lượng', color='Mã ngạch')
+                    
+                    # Lệnh "thần thánh" ép Plotly hiện thị trục Y dạng Danh mục (Category)
+                    fig_ma.update_yaxes(type='category', categoryorder='total ascending')
                     fig_ma.update_layout(showlegend=False)
+                    
                     st.plotly_chart(fig_ma, use_container_width=True)
                     
             else:
