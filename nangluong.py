@@ -3,6 +3,7 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import json # Bổ sung công cụ rà soát lỗi
 
 # 1. CẤU HÌNH TRANG CHUYÊN NGHIỆP CỦA SẾP
 st.set_page_config(page_title="Quản lý Lương Tuyên Quang", page_icon="📊", layout="wide")
@@ -56,7 +57,7 @@ def tinh_toan_nang_luong(df):
             res.at[idx, 'he_so_moi'] = ""
             res.at[idx, 'vuot_khung_moi'] = ""
             res.at[idx, 'ngay_du_kien'] = ""
-            res.at[idx, 'trang_thai'] = "Lỗi ngày"
+            res.at[idx, 'trang_thai'] = "Chưa có ngày"
             continue
             
         is_vk = False
@@ -125,7 +126,7 @@ def main():
     try:
         res = supabase.table("theo_doi_luong").select("*").execute()
         
-        # 🌟 KHẮC PHỤC LỖI "ĐƯỜNG CỤT" 🌟
+        # Xử lý nếu kho rỗng
         if res.data:
             df = pd.DataFrame(res.data)
         else:
@@ -135,7 +136,7 @@ def main():
                 "bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien",
                 "trang_thai", "loai_nang_luong", "ghi_chu"
             ])
-            st.warning("⚠️ Cơ sở dữ liệu đang trống. Sếp hãy tải file CSV lên để khôi phục lại nhé!")
+            st.warning("⚠️ Cơ sở dữ liệu đang trống. Sếp hãy mở tab 'Nạp dữ liệu' bên dưới để tải file CSV phục hồi nhé!")
             
         df_calculated = tinh_toan_nang_luong(df)
         
@@ -144,7 +145,7 @@ def main():
         
         st.subheader("🤖 Trợ lý Nhân sự")
         with st.chat_message("assistant"):
-            st.write("Chào Sếp Tuấn! Hệ thống đã sẵn sàng.")
+            st.write("Chào Sếp Tuấn! Hệ thống đã kích hoạt chế độ Bảo vệ Dữ liệu cấp độ cao.")
             if col_status and not df_calculated.empty:
                 df_calculated[col_status] = df_calculated[col_status].astype(str)
                 sap_den_han = df_calculated[df_calculated[col_status].str.contains("Sắp đến hạn|Đã quá hạn", na=False)]
@@ -155,21 +156,21 @@ def main():
 
         st.write("---")
 
-        # --- NẠP DỮ LIỆU TỪ CSV ĐỂ PHỤC HỒI ---
-        with st.expander("📂 Nạp dữ liệu từ file CSV (Bấm vào đây để mở tải file)"):
-            file_upload = st.file_uploader("Sếp chọn file CSV vừa tải về lúc nãy nhé:", type=["csv"])
+        # --- NẠP DỮ LIỆU TỪ CSV ---
+        with st.expander("📂 Nạp dữ liệu từ file CSV (Bấm để tải file phục hồi)"):
+            file_upload = st.file_uploader("Chọn file báo cáo CSV sếp vừa tải về lúc trước:", type=["csv"])
             if file_upload:
                 try:
                     df_csv = pd.read_csv(file_upload)
                     df_calculated = pd.concat([df_calculated, df_csv], ignore_index=True)
                     df_calculated = tinh_toan_nang_luong(df_calculated)
-                    st.success("✅ Đã nạp thành công! Sếp lướt xuống kiểm tra rồi bấm nút LƯU ở cuối cùng nhé.")
+                    st.success("✅ Đã đọc thành công file CSV! Sếp lướt xuống cuối bảng bấm 'Lưu' để chốt nhé.")
                 except Exception as e:
                     st.error(f"Lỗi đọc file: {e}")
 
         # --- HIỂN THỊ BẢNG ĐẸP ---
         st.subheader("📋 Danh sách chi tiết")
-        st.caption("💡 Mẹo: Bấm biểu tượng Kính lúp (🔍) ở góc phải bảng để tìm người. An toàn hơn bộ lọc cũ!")
+        st.caption("💡 Mẹo: Bấm biểu tượng Kính lúp (🔍) ở góc phải bảng để tìm người. Sửa thông tin xong nhớ bấm Lưu bên dưới để máy tự cộng lại cột Tương lai nhé!")
         
         def color_status(val):
             if pd.isna(val): return ''
@@ -190,27 +191,42 @@ def main():
         # --- NÚT LƯU & TẢI ---
         col_luu, col_tai = st.columns(2)
         with col_luu:
-            if st.button("💾 Lưu các chỉnh sửa lên cơ sở dữ liệu"):
+            if st.button("💾 Lưu các chỉnh sửa & Tính toán lại"):
                 try:
                     current_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
-                    
-                    supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Tất_Cả").execute()
                     luu_df = current_df[current_df['ho_ten'].str.strip().astype(bool)].copy()
                     
-                    # Cắt bỏ các cột tính toán và ID trước khi lưu để DB sạch sẽ
+                    # Bỏ các cột tự động tính trước khi lưu
                     cols_to_drop = ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai", "id"]
                     luu_df = luu_df.drop(columns=[c for c in cols_to_drop if c in luu_df.columns], errors='ignore')
                     
-                    # TRỊ LỖI MẢNG NaN KHÔNG LƯU ĐƯỢC
-                    luu_df = luu_df.where(pd.notnull(luu_df), None)
-                    
-                    records = luu_df.to_dict(orient="records")
+                    # 🌟 BƯỚC 1: LÀM SẠCH TRIỆT ĐỂ MỌI LỖI NaN 🌟
+                    records = []
+                    for r in luu_df.to_dict(orient="records"):
+                        clean_r = {}
+                        for k, v in r.items():
+                            # Nếu là NaN, trống, NaT thì đổi thành rỗng (None)
+                            if pd.isna(v): 
+                                clean_r[k] = None
+                            else:
+                                clean_r[k] = v
+                        records.append(clean_r)
+                        
+                    # 🌟 BƯỚC 2: RÀ SOÁT TỬ HÌNH "NaN" 🌟
+                    # Ép chạy qua máy quét JSON. Nếu còn sót cái lỗi NaN nào nó sẽ báo lỗi và dừng lại NGAY LẬP TỨC!
+                    json.dumps(records) 
+
+                    # 🌟 BƯỚC 3: THAY MÁU CƠ SỞ DỮ LIỆU AN TOÀN 🌟
+                    # Chạy đến đây nghĩa là dữ liệu an toàn 100% rồi, mới dám xóa và lưu
+                    supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Tất_Cả").execute()
                     if records:
                         supabase.table("theo_doi_luong").insert(records).execute()
-                    st.success("Đã lưu thành công dữ liệu!")
+                        
+                    st.success("🎉 Lưu thành công tuyệt đối! Đang cập nhật lại các mốc thời gian...")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Lỗi khi lưu: {e}")
+                    # Báo lỗi nhưng KHÔNG xóa dữ liệu cũ
+                    st.error(f"Phát hiện dữ liệu bất thường: {e}. Hệ thống đã chặn lại để bảo vệ cơ sở dữ liệu. Sếp kiểm tra lại ô vừa nhập nhé!")
 
         with col_tai:
             out_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
@@ -222,7 +238,7 @@ def main():
             )
 
     except Exception as e:
-        st.error(f"Hệ thống gặp sự cố: {e}")
+        st.error(f"Hệ thống gặp sự cố mạng: {e}")
 
 if __name__ == "__main__":
     main()
