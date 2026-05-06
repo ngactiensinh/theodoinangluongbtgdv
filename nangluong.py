@@ -103,6 +103,7 @@ def tinh_toan_nang_luong(df):
         res.at[idx, 'vuot_khung_moi'] = vk_moi
         res.at[idx, 'ngay_du_kien'] = ngay_dk.strftime('%d/%m/%Y')
         
+        # Đã tinh chỉnh lại Trạng thái để ghép chuẩn với code của sếp
         days_left = (ngay_dk - today).days
         if days_left < 0:
             res.at[idx, 'trang_thai'] = "Đã quá hạn"
@@ -117,64 +118,62 @@ def tinh_toan_nang_luong(df):
 
 def main():
     try:
-        # Lấy dữ liệu với đúng TÊN BẢNG CŨ CỦA SẾP
         res = supabase.table("theo_doi_luong").select("*").execute()
         
         if res.data:
             df = pd.DataFrame(res.data)
             
-            # Tính toán lại toàn bộ mốc thời gian
+            # Tính toán lại trước khi đưa vào Trợ lý báo cáo
             df_calculated = tinh_toan_nang_luong(df)
             
-            # --- XỬ LÝ TRỢ LÝ THÔNG BÁO ---
+            # --- XỬ LÝ TRỢ LÝ THÔNG BÁO (Code siêu chuẩn của sếp) ---
+            col_status = next((c for c in df_calculated.columns if 'trang' in c.lower()), None)
+            
             st.subheader("🤖 Trợ lý Nhân sự")
             with st.chat_message("assistant"):
-                st.write("Chào Sếp Tuấn! Hệ thống đã tự động tính toán lại toàn bộ mốc nâng lương mới nhất.")
-                sap_den_han = df_calculated[df_calculated['trang_thai'].str.contains("đến hạn|quá hạn", case=False, na=False)]
-                if not sap_den_han.empty:
-                    st.error(f"🚨 Đang có **{len(sap_den_han)}** đồng chí chuẩn bị (hoặc đã) đến hạn nâng lương. Sếp lưu ý nhé!")
-                else:
-                    st.success("✅ Hiện tại danh sách đều ổn thỏa, chưa có ai đến hạn.")
+                st.write("Chào Bạn Tuấn! Hệ thống đã sẵn sàng và đã cập nhật lại các mốc thời gian.")
+                if col_status:
+                    df_calculated[col_status] = df_calculated[col_status].astype(str)
+                    # Bổ sung thêm tìm người "Đã quá hạn" cho chắc cốp
+                    sap_den_han = df_calculated[df_calculated[col_status].str.contains("Sắp đến hạn|Đã quá hạn", na=False)]
+                    if not sap_den_han.empty:
+                        st.error(f"🚨 Có **{len(sap_den_han)}** đồng chí sắp (hoặc đã) đến hạn nâng lương. Sếp lưu ý nhé!")
+                    else:
+                        st.success("✅ Hiện tại danh sách đều ổn thỏa, chưa có ai đến hạn.")
 
             st.write("---")
 
             # --- BỘ LỌC THÔNG MINH ---
+            col_name = next((c for c in df_calculated.columns if 'ho' in c.lower() or 'ten' in c.lower()), df_calculated.columns[0])
+            
             c1, c2 = st.columns([2, 1])
             with c1:
                 search = st.text_input("🔍 Tra cứu tên cán bộ:", placeholder="Nhập tên để tìm nhanh...")
             with c2:
-                loc_thoi_gian = st.selectbox("Lọc theo thời gian đến hạn:", 
-                                            ["Tất cả", "Trong tháng này", "Trong Quý này", "Trong 6 tháng tới", "Trong 9 tháng tới", "Trong năm nay"])
+                if col_status:
+                    status_list = ["Tất cả"] + list(df_calculated[col_status].unique())
+                    filter_val = st.selectbox("Lọc theo trạng thái:", status_list)
 
             # Thực hiện lọc
             df_display = df_calculated.copy()
             if search:
-                df_display = df_display[df_display['ho_ten'].astype(str).str.contains(search, case=False, na=False)]
-            
-            if loc_thoi_gian != "Tất cả":
-                today = datetime.now()
-                df_display['ngay_dk_dt'] = pd.to_datetime(df_display['ngay_du_kien'], format='%d/%m/%Y', errors='coerce')
-                df_display['so_ngay'] = (df_display['ngay_dk_dt'] - today).dt.days
-                
-                if loc_thoi_gian == "Trong tháng này":
-                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 30)]
-                elif loc_thoi_gian == "Trong Quý này":
-                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 90)]
-                elif loc_thoi_gian == "Trong 6 tháng tới":
-                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 180)]
-                elif loc_thoi_gian == "Trong 9 tháng tới":
-                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 270)]
-                elif loc_thoi_gian == "Trong năm nay":
-                    df_display = df_display[df_display['ngay_dk_dt'].dt.year == today.year]
-                    
-                df_display = df_display.drop(columns=['ngay_dk_dt', 'so_ngay'])
+                df_display = df_display[df_display[col_name].astype(str).str.contains(search, case=False, na=False)]
+            if col_status and filter_val != "Tất cả":
+                df_display = df_display[df_display[col_status] == filter_val]
 
-            # --- HIỂN THỊ BẢNG CHO PHÉP CHỈNH SỬA (st.data_editor) ---
+            # --- HIỂN THỊ BẢNG ĐẸP ---
             st.subheader("📋 Danh sách chi tiết (Có thể chỉnh sửa)")
             st.caption("✍️ Bấm vào các ô thông tin HIỆN TẠI để sửa hoặc bấm dòng dưới cùng để THÊM MỚI. Cột TƯƠNG LAI máy tự tính.")
             
+            # Định dạng màu sắc cho cột trạng thái
+            def color_status(val):
+                if pd.isna(val): return ''
+                val_str = str(val)
+                if "Sắp đến hạn" in val_str or "Đã quá hạn" in val_str: return 'color: red; font-weight: bold'
+                return 'color: green'
+
             edited_df = st.data_editor(
-                df_display,
+                df_display.style.map(color_status, subset=[col_status] if col_status else []),
                 num_rows="dynamic",
                 disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"],
                 use_container_width=True,
@@ -186,35 +185,38 @@ def main():
             with col_luu:
                 if st.button("💾 Lưu các chỉnh sửa lên cơ sở dữ liệu"):
                     try:
-                        # Xóa cũ ghi mới
-                        supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Tất_Cả").execute()
-                        luu_df = edited_df[edited_df['ho_ten'].str.strip().astype(bool)].copy()
+                        # Rút ruột DataFrame từ Styler Object (bắt buộc vì df_display đang bọc trong style)
+                        raw_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
                         
-                        # Không chèn các cột tự động tính vào DB (để DB sạch)
+                        supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Tất_Cả").execute()
+                        luu_df = raw_df[raw_df['ho_ten'].str.strip().astype(bool)].copy()
+                        
                         cols_to_drop = ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"]
                         luu_df = luu_df.drop(columns=[c for c in cols_to_drop if c in luu_df.columns])
                         
                         records = luu_df.to_dict(orient="records")
                         if records:
                             supabase.table("theo_doi_luong").insert(records).execute()
-                        st.success("Đã lưu thành công! Hệ thống sẽ tự làm mới.")
+                        st.success("Đã lưu thành công! Cập nhật xong các mốc nâng lương mới.")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Lỗi khi lưu: {e}")
 
             with col_tai:
+                # Xử lý tương tự để lấy DataFrame thô trước khi xuất CSV
+                raw_df = df_display.data if hasattr(df_display, 'data') else df_display
                 st.download_button(
                     "📥 Tải file báo cáo (CSV)",
-                    edited_df.to_csv(index=False).encode('utf-8-sig'),
+                    raw_df.to_csv(index=False).encode('utf-8-sig'),
                     f"bao_cao_luong_{datetime.now().strftime('%d%m%Y')}.csv",
                     "text/csv"
                 )
 
         else:
-            st.info("Chưa có dữ liệu trong bảng theo_doi_luong. Sếp kiểm tra lại Supabase nhé!")
+            st.info("Chưa có dữ liệu trong bảng theo_doi_luong.")
 
     except Exception as e:
-        st.error(f"Hệ thống gặp lỗi: {e}")
+        st.error(f"Hệ thống đang bảo trì phần hiển thị. Sếp hãy kiểm tra lại Secrets hoặc F5 nhé! Chi tiết: {e}")
 
 if __name__ == "__main__":
     main()
