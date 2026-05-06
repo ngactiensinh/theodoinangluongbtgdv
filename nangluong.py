@@ -272,66 +272,78 @@ def main():
                 )
 
         # ==========================================
-        # TAB 2: DASHBOARD BIỂU ĐỒ (Order của sếp)
+        # TAB 2: DASHBOARD BIỂU ĐỒ (Clone chuẩn Google Sheet của sếp)
         # ==========================================
         with tab2:
-            st.subheader("Báo cáo phân tích tổng quan")
+            st.subheader("📊 Bảng điều khiển (Dashboard) Tổng quan")
             if not df_calculated.empty:
-                # Trích xuất dữ liệu sạch để vẽ
                 df_chart = df_calculated.copy()
-                df_chart['vuot_khung_hien_tai'] = df_chart['vuot_khung_hien_tai'].replace(['None', '', None, 'nan'], 'Không Vượt khung')
                 
-                # Chia 2 cột cho hàng đầu tiên
-                c_bieu_1, c_bieu_2 = st.columns(2)
+                # --- HÀNG 1: 3 BIỂU ĐỒ (Chia 3 cột đều nhau) ---
+                c1, c2, c3 = st.columns(3)
                 
-                with c_bieu_1:
-                    # 1. Biểu đồ Ngạch lương (Pie)
-                    df_ngach = df_chart['ngach_luong'].value_counts().reset_index()
-                    df_ngach.columns = ['Ngạch', 'Số lượng']
-                    fig_ngach = px.pie(df_ngach, values='Số lượng', names='Ngạch', title='1. Cơ cấu Cán bộ theo Ngạch lương', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
-                    st.plotly_chart(fig_ngach, use_container_width=True)
-                
-                with c_bieu_2:
-                    # 2. Biểu đồ Vượt khung (Pie)
-                    df_vk = df_chart['vuot_khung_hien_tai'].value_counts().reset_index()
-                    df_vk.columns = ['Tình trạng', 'Số lượng']
-                    # Gộp tất cả các % vượt khung lại thành 1 nhóm "Đang hưởng Vượt khung"
-                    df_vk['Nhóm'] = df_vk['Tình trạng'].apply(lambda x: 'Không Vượt khung' if x == 'Không Vượt khung' else 'Đang hưởng Vượt khung')
-                    df_vk_group = df_vk.groupby('Nhóm')['Số lượng'].sum().reset_index()
-                    fig_vk = px.pie(df_vk_group, values='Số lượng', names='Nhóm', title='2. Tỷ lệ hưởng phụ cấp Vượt khung', color_discrete_sequence=['#17a2b8', '#ffc107'])
-                    st.plotly_chart(fig_vk, use_container_width=True)
-
-                st.divider()
-                
-                # Chia 2 cột cho hàng thứ hai
-                c_bieu_3, c_bieu_4 = st.columns(2)
-                
-                with c_bieu_3:
-                    # 3. Biểu đồ Bậc lương (Bar)
-                    df_bac = df_chart['bac_luong'].value_counts().reset_index()
-                    df_bac.columns = ['Bậc lương', 'Số lượng cán bộ']
-                    df_bac = df_bac.sort_values(by='Bậc lương')
-                    fig_bac = px.bar(df_bac, x='Bậc lương', y='Số lượng cán bộ', title='3. Phân bổ Cán bộ theo Bậc lương hiện tại', text='Số lượng cán bộ')
-                    fig_bac.update_traces(textposition='outside')
-                    st.plotly_chart(fig_bac, use_container_width=True)
-                
-                with c_bieu_4:
-                    # 4. Biểu đồ Mã ngạch (Bar ngang)
-                    # Ép kiểu toàn bộ Mã ngạch sang chuỗi (String) trước khi đếm
-                    df_chart['ma_ngach'] = df_chart['ma_ngach'].fillna("Chưa có").astype(str)
-                    
-                    df_ma = df_chart['ma_ngach'].value_counts().reset_index()
+                # 1. Biểu đồ Mã ngạch lương hiện hưởng
+                with c1:
+                    df_ma = df_chart['ma_ngach'].fillna("Chưa có").astype(str).value_counts().reset_index()
                     df_ma.columns = ['Mã ngạch', 'Số lượng']
-                    
-                    fig_ma = px.bar(df_ma, x='Số lượng', y='Mã ngạch', orientation='h', 
-                                    title='4. Phân bổ theo Mã ngạch', text='Số lượng', color='Mã ngạch')
-                    
-                    # Lệnh "thần thánh" ép Plotly hiện thị trục Y dạng Danh mục (Category)
-                    fig_ma.update_yaxes(type='category', categoryorder='total ascending')
-                    fig_ma.update_layout(showlegend=False)
-                    
+                    fig_ma = px.bar(df_ma, x='Mã ngạch', y='Số lượng', text='Số lượng')
+                    fig_ma.update_traces(marker_color='#4A8af4', textposition='outside')
+                    fig_ma.update_layout(
+                        title={'text': "MÃ NGẠCH LƯƠNG HIỆN HƯỞNG", 'x': 0.5, 'font': {'color': 'blue', 'size': 14}},
+                        paper_bgcolor='#f8e4b7', plot_bgcolor='#f8e4b7', # Màu nền vàng nhạt
+                        xaxis={'type': 'category'}, xaxis_title=None, yaxis_title=None,
+                        margin=dict(l=10, r=10, t=50, b=10),
+                        height=350
+                    )
                     st.plotly_chart(fig_ma, use_container_width=True)
                     
+                # 2. Biểu đồ Ngạch lương
+                with c2:
+                    df_ngach = df_chart['ngach_luong'].fillna("Chưa có").astype(str).value_counts().reset_index()
+                    df_ngach.columns = ['Ngạch', 'Số lượng']
+                    fig_ngach = px.bar(df_ngach, x='Số lượng', y='Ngạch', orientation='h', text='Số lượng')
+                    fig_ngach.update_traces(marker_color='#ba2812', textposition='outside')
+                    fig_ngach.update_layout(
+                        title={'text': "NGẠCH LƯƠNG", 'x': 0.5, 'font': {'color': 'blue', 'size': 14}},
+                        paper_bgcolor='#f1f1f1', plot_bgcolor='#f1f1f1', # Màu nền xám nhạt
+                        yaxis={'categoryorder': 'total ascending'}, xaxis_title=None, yaxis_title=None,
+                        margin=dict(l=10, r=10, t=50, b=10),
+                        height=350
+                    )
+                    st.plotly_chart(fig_ngach, use_container_width=True)
+                    
+                # 3. Biểu đồ Bậc lương hiện hưởng
+                with c3:
+                    df_bac = df_chart['bac_luong'].fillna("Chưa có").astype(str).value_counts().reset_index()
+                    df_bac.columns = ['Bậc lương', 'Số lượng']
+                    fig_bac = px.pie(df_bac, names='Bậc lương', values='Số lượng')
+                    fig_bac.update_traces(textposition='inside', textinfo='percent+label')
+                    fig_bac.update_layout(
+                        title={'text': "BẬC LƯƠNG HIỆN HƯỞNG", 'x': 0.5, 'font': {'color': 'blue', 'size': 14}},
+                        paper_bgcolor='#e2ccd9', plot_bgcolor='#e2ccd9', # Màu nền hồng nhạt
+                        showlegend=False,
+                        margin=dict(l=10, r=10, t=50, b=10),
+                        height=350
+                    )
+                    st.plotly_chart(fig_bac, use_container_width=True)
+                    
+                st.write("---") # Đường kẻ phân cách
+                
+                # --- HÀNG 2: 1 BIỂU ĐỒ TRẢI DÀI (Full width) ---
+                # 4. Biểu đồ Hệ số lương hiện tại
+                df_heso = df_chart['he_so_hien_tai'].fillna("0").astype(str).value_counts().reset_index()
+                df_heso.columns = ['Hệ số', 'Số lượng']
+                fig_heso = px.bar(df_heso, x='Hệ số', y='Số lượng', text='Số lượng')
+                fig_heso.update_traces(marker_color='#4A8af4', textposition='outside')
+                fig_heso.update_layout(
+                    title={'text': "HỆ SỐ LƯƠNG HIỆN TẠI", 'x': 0.5, 'font': {'color': 'blue', 'size': 16}},
+                    paper_bgcolor='white', plot_bgcolor='white',
+                    xaxis={'type': 'category'}, xaxis_title=None, yaxis_title=None,
+                    margin=dict(l=20, r=20, t=50, b=20),
+                    height=450
+                )
+                st.plotly_chart(fig_heso, use_container_width=True)
+                
             else:
                 st.info("Chưa có dữ liệu để vẽ biểu đồ.")
 
