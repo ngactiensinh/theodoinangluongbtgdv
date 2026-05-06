@@ -180,12 +180,12 @@ def main():
                 hide_index=True
             )
             
-            # --- NÚT LƯU & TẢI ---
+           # --- NÚT LƯU & TẢI ---
             col_luu, col_tai = st.columns(2)
             with col_luu:
                 if st.button("💾 Lưu các chỉnh sửa lên cơ sở dữ liệu"):
                     try:
-                        # Rút ruột DataFrame từ Styler Object (bắt buộc vì df_display đang bọc trong style)
+                        # Rút ruột DataFrame từ Styler Object
                         raw_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
                         
                         supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Tất_Cả").execute()
@@ -193,6 +193,10 @@ def main():
                         
                         cols_to_drop = ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"]
                         luu_df = luu_df.drop(columns=[c for c in cols_to_drop if c in luu_df.columns])
+                        
+                        # 🌟 THÊM DÒNG NÀY ĐỂ TRỊ LỖI "NaN" 🌟
+                        # Chuyển đổi tất cả các giá trị rỗng/lỗi thành None để Supabase (JSON) hiểu được
+                        luu_df = luu_df.where(pd.notnull(luu_df), None)
                         
                         records = luu_df.to_dict(orient="records")
                         if records:
@@ -203,7 +207,6 @@ def main():
                         st.error(f"Lỗi khi lưu: {e}")
 
             with col_tai:
-                # Xử lý tương tự để lấy DataFrame thô trước khi xuất CSV
                 raw_df = df_display.data if hasattr(df_display, 'data') else df_display
                 st.download_button(
                     "📥 Tải file báo cáo (CSV)",
