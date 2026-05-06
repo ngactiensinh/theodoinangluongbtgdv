@@ -203,10 +203,27 @@ def main():
                 if "Sắp đến hạn" in val_str or "Đã quá hạn" in val_str: return 'color: red; font-weight: bold'
                 return 'color: green'
 
+            # --- XỬ LÝ LỖI MÃ NGẠCH BỊ BIẾN THÀNH SỐ ---
+            def format_ma_ngach(val):
+                if pd.isna(val) or val == "" or str(val).lower() == "nan":
+                    return ""
+                val_str = str(val).strip()
+                # Nếu hệ thống đang lỡ lưu kiểu 1001.0 thì tự động gọt đuôi .0 đi cho đẹp
+                if val_str.endswith(".0"):
+                    val_str = val_str[:-2]
+                return val_str
+
+            df_display['ma_ngach'] = df_display['ma_ngach'].apply(format_ma_ngach)
+
+            # Hiển thị Data Editor
             st.caption("✍️ Sửa trực tiếp trên bảng. Sửa xong bấm LƯU để máy tự cộng cột Tương lai!")
             edited_df = st.data_editor(
                 df_display.style.map(color_status, subset=['trang_thai']),
                 num_rows="dynamic",
+                column_config={
+                    # 🌟 ÉP CHUẨN CỘT MÃ NGẠCH THÀNH VĂN BẢN (TEXT) 🌟
+                    "ma_ngach": st.column_config.TextColumn("Mã ngạch")
+                },
                 disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"],
                 use_container_width=True,
                 hide_index=True
