@@ -3,12 +3,13 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-import json # Bổ sung công cụ rà soát lỗi
+import json
+import plotly.express as px  # THƯ VIỆN VẼ BIỂU ĐỒ MỚI
 
-# 1. CẤU HÌNH TRANG CHUYÊN NGHIỆP CỦA SẾP
+# 1. CẤU HÌNH TRANG
 st.set_page_config(page_title="Quản lý Lương Tuyên Quang", page_icon="📊", layout="wide")
 
-# 2. CSS ĐỂ LÀM ĐẸP
+# 2. CSS LÀM ĐẸP
 st.markdown("""
     <style>
     .main-header {
@@ -21,7 +22,7 @@ st.markdown("""
 
 st.markdown('<div class="main-header"><h1>📈 HỆ THỐNG QUẢN LÝ LƯƠNG 4.0</h1><p>Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang</p></div>', unsafe_allow_html=True)
 
-# 3. KẾT NỐI (Lấy từ Secrets)
+# 3. KẾT NỐI SUPABASE
 try:
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
@@ -30,7 +31,7 @@ except Exception as e:
     st.error("Lỗi cấu hình Secrets. Sếp kiểm tra lại nhé!")
     st.stop()
 
-# 4. HÀM TỰ ĐỘNG TÍNH TOÁN THEO LUẬT
+# 4. HÀM TỰ ĐỘNG TÍNH TOÁN
 def tinh_toan_nang_luong(df):
     res = df.copy()
     if res.empty: return res
@@ -120,13 +121,14 @@ def tinh_toan_nang_luong(df):
         else:
             res.at[idx, 'trang_thai'] = "Chưa đến hạn"
             
+    # Dọn dẹp lỗi hiển thị chữ 'nan' thừa mứa
+    res = res.fillna("")
     return res
 
 def main():
     try:
         res = supabase.table("theo_doi_luong").select("*").execute()
         
-        # Xử lý nếu kho rỗng
         if res.data:
             df = pd.DataFrame(res.data)
         else:
@@ -136,109 +138,179 @@ def main():
                 "bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien",
                 "trang_thai", "loai_nang_luong", "ghi_chu"
             ])
-            st.warning("⚠️ Cơ sở dữ liệu đang trống. Sếp hãy mở tab 'Nạp dữ liệu' bên dưới để tải file CSV phục hồi nhé!")
             
         df_calculated = tinh_toan_nang_luong(df)
         
-        # --- XỬ LÝ TRỢ LÝ THÔNG BÁO ---
+        # --- TRỢ LÝ THÔNG BÁO ---
         col_status = next((c for c in df_calculated.columns if 'trang' in c.lower()), None)
-        
         st.subheader("🤖 Trợ lý Nhân sự")
         with st.chat_message("assistant"):
-            st.write("Chào Sếp Tuấn! Hệ thống đã kích hoạt chế độ Bảo vệ Dữ liệu cấp độ cao.")
+            st.write("Chào Sếp Tuấn! Hệ thống đã phục hồi Bộ lọc thông minh và bổ sung Bảng điều khiển.")
             if col_status and not df_calculated.empty:
                 df_calculated[col_status] = df_calculated[col_status].astype(str)
                 sap_den_han = df_calculated[df_calculated[col_status].str.contains("Sắp đến hạn|Đã quá hạn", na=False)]
                 if not sap_den_han.empty:
-                    st.error(f"🚨 Có **{len(sap_den_han)}** đồng chí sắp (hoặc đã) đến hạn nâng lương. Sếp lưu ý nhé!")
+                    st.error(f"🚨 Đang có **{len(sap_den_han)}** đồng chí sắp (hoặc đã) đến hạn nâng lương. Sếp chuyển sang Tab Dữ liệu lọc xem ai nhé!")
                 else:
-                    st.success("✅ Hiện tại danh sách đều ổn thỏa, chưa có ai đến hạn.")
+                    st.success("✅ Danh sách đều ổn thỏa, chưa có ai đến hạn.")
 
         st.write("---")
 
-        # --- NẠP DỮ LIỆU TỪ CSV ---
-        with st.expander("📂 Nạp dữ liệu từ file CSV (Bấm để tải file phục hồi)"):
-            file_upload = st.file_uploader("Chọn file báo cáo CSV sếp vừa tải về lúc trước:", type=["csv"])
-            if file_upload:
-                try:
-                    df_csv = pd.read_csv(file_upload)
-                    df_calculated = pd.concat([df_calculated, df_csv], ignore_index=True)
-                    df_calculated = tinh_toan_nang_luong(df_calculated)
-                    st.success("✅ Đã đọc thành công file CSV! Sếp lướt xuống cuối bảng bấm 'Lưu' để chốt nhé.")
-                except Exception as e:
-                    st.error(f"Lỗi đọc file: {e}")
+        # --- CHIA 2 TAB: QUẢN LÝ & THỐNG KÊ ---
+        tab1, tab2 = st.tabs(["📋 Quản lý & Lọc Dữ liệu", "📊 Bảng Thống kê (Dashboard)"])
 
-        # --- HIỂN THỊ BẢNG ĐẸP ---
-        st.subheader("📋 Danh sách chi tiết")
-        st.caption("💡 Mẹo: Bấm biểu tượng Kính lúp (🔍) ở góc phải bảng để tìm người. Sửa thông tin xong nhớ bấm Lưu bên dưới để máy tự cộng lại cột Tương lai nhé!")
-        
-        def color_status(val):
-            if pd.isna(val): return ''
-            val_str = str(val)
-            if "Sắp đến hạn" in val_str or "Đã quá hạn" in val_str: return 'color: red; font-weight: bold'
-            return 'color: green'
+        # ==========================================
+        # TAB 1: BẢNG DỮ LIỆU & BỘ LỌC (Đã mang trả lại sếp)
+        # ==========================================
+        with tab1:
+            # 🌟 BỘ LỌC ĐÃ TRỞ LẠI 🌟
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                search = st.text_input("🔍 Tra cứu tên cán bộ / chức vụ:", placeholder="Nhập tên hoặc chức vụ để tìm nhanh...")
+            with c2:
+                loc_thoi_gian = st.selectbox("⏳ Lọc theo thời gian đến hạn:", 
+                                            ["Tất cả", "Trong tháng này", "Trong Quý này", "Trong 6 tháng tới", "Trong năm nay", "Đã quá hạn"])
 
-        raw_df = df_calculated.copy()
-        
-        edited_df = st.data_editor(
-            raw_df.style.map(color_status, subset=[col_status] if col_status else []),
-            num_rows="dynamic",
-            disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"],
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # --- NÚT LƯU & TẢI ---
-        col_luu, col_tai = st.columns(2)
-        with col_luu:
-            if st.button("💾 Lưu các chỉnh sửa & Tính toán lại"):
-                try:
-                    current_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
-                    luu_df = current_df[current_df['ho_ten'].str.strip().astype(bool)].copy()
+            # Xử lý Lọc
+            df_display = df_calculated.copy()
+            
+            if search:
+                # Tìm cả trong cột Tên và Chức vụ
+                mask = df_display.astype(str).apply(lambda x: x.str.contains(search, case=False, na=False)).any(axis=1)
+                df_display = df_display[mask]
+                
+            if loc_thoi_gian != "Tất cả":
+                today = datetime.now()
+                df_display['ngay_dk_dt'] = pd.to_datetime(df_display['ngay_du_kien'], format='%d/%m/%Y', errors='coerce')
+                df_display['so_ngay'] = (df_display['ngay_dk_dt'] - today).dt.days
+                
+                if loc_thoi_gian == "Trong tháng này":
+                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 30)]
+                elif loc_thoi_gian == "Trong Quý này":
+                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 90)]
+                elif loc_thoi_gian == "Trong 6 tháng tới":
+                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 180)]
+                elif loc_thoi_gian == "Trong năm nay":
+                    df_display = df_display[df_display['ngay_dk_dt'].dt.year == today.year]
+                elif loc_thoi_gian == "Đã quá hạn":
+                    df_display = df_display[df_display['so_ngay'] < 0]
                     
-                    # Bỏ các cột tự động tính trước khi lưu
-                    cols_to_drop = ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai", "id"]
-                    luu_df = luu_df.drop(columns=[c for c in cols_to_drop if c in luu_df.columns], errors='ignore')
-                    
-                    # 🌟 BƯỚC 1: LÀM SẠCH TRIỆT ĐỂ MỌI LỖI NaN 🌟
-                    records = []
-                    for r in luu_df.to_dict(orient="records"):
-                        clean_r = {}
-                        for k, v in r.items():
-                            # Nếu là NaN, trống, NaT thì đổi thành rỗng (None)
-                            if pd.isna(v): 
-                                clean_r[k] = None
-                            else:
-                                clean_r[k] = v
-                        records.append(clean_r)
-                        
-                    # 🌟 BƯỚC 2: RÀ SOÁT TỬ HÌNH "NaN" 🌟
-                    # Ép chạy qua máy quét JSON. Nếu còn sót cái lỗi NaN nào nó sẽ báo lỗi và dừng lại NGAY LẬP TỨC!
-                    json.dumps(records) 
+                df_display = df_display.drop(columns=['ngay_dk_dt', 'so_ngay'], errors='ignore')
 
-                    # 🌟 BƯỚC 3: THAY MÁU CƠ SỞ DỮ LIỆU AN TOÀN 🌟
-                    # Chạy đến đây nghĩa là dữ liệu an toàn 100% rồi, mới dám xóa và lưu
-                    supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Tất_Cả").execute()
-                    if records:
-                        supabase.table("theo_doi_luong").insert(records).execute()
-                        
-                    st.success("🎉 Lưu thành công tuyệt đối! Đang cập nhật lại các mốc thời gian...")
-                    st.rerun()
-                except Exception as e:
-                    # Báo lỗi nhưng KHÔNG xóa dữ liệu cũ
-                    st.error(f"Phát hiện dữ liệu bất thường: {e}. Hệ thống đã chặn lại để bảo vệ cơ sở dữ liệu. Sếp kiểm tra lại ô vừa nhập nhé!")
+            # Hiển thị Data Editor
+            def color_status(val):
+                val_str = str(val)
+                if "Sắp đến hạn" in val_str or "Đã quá hạn" in val_str: return 'color: red; font-weight: bold'
+                return 'color: green'
 
-        with col_tai:
-            out_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
-            st.download_button(
-                "📥 Tải file báo cáo (CSV)",
-                out_df.to_csv(index=False).encode('utf-8-sig'),
-                f"bao_cao_luong_{datetime.now().strftime('%d%m%Y')}.csv",
-                "text/csv"
+            st.caption("✍️ Sửa trực tiếp trên bảng. Sửa xong bấm LƯU để máy tự cộng cột Tương lai!")
+            edited_df = st.data_editor(
+                df_display.style.map(color_status, subset=['trang_thai']),
+                num_rows="dynamic",
+                disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"],
+                use_container_width=True,
+                hide_index=True
             )
+            
+            # --- NÚT LƯU & TẢI ---
+            col_luu, col_tai = st.columns(2)
+            with col_luu:
+                if st.button("💾 Lưu thay đổi & Tính toán lại"):
+                    try:
+                        current_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
+                        luu_df = current_df[current_df['ho_ten'].str.strip().astype(bool)].copy()
+                        
+                        cols_to_drop = ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai", "id"]
+                        luu_df = luu_df.drop(columns=[c for c in cols_to_drop if c in luu_df.columns], errors='ignore')
+                        
+                        # Rà soát tử hình NaN siêu chặt chẽ
+                        records = []
+                        for r in luu_df.to_dict(orient="records"):
+                            clean_r = {}
+                            for k, v in r.items():
+                                if pd.isna(v) or v == "" or str(v).lower() == 'nan':
+                                    clean_r[k] = None
+                                else:
+                                    clean_r[k] = v
+                            records.append(clean_r)
+                            
+                        json.dumps(records) # Chạy máy quét JSON
+                        
+                        supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Tất_Cả").execute()
+                        if records:
+                            supabase.table("theo_doi_luong").insert(records).execute()
+                            
+                        st.success("🎉 Lưu thành công tuyệt đối!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Lỗi nhập liệu: {e}")
+
+            with col_tai:
+                out_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
+                st.download_button(
+                    "📥 Xuất file báo cáo (CSV)",
+                    out_df.to_csv(index=False).encode('utf-8-sig'),
+                    f"bao_cao_luong_{datetime.now().strftime('%d%m%Y')}.csv",
+                    "text/csv"
+                )
+
+        # ==========================================
+        # TAB 2: DASHBOARD BIỂU ĐỒ (Order của sếp)
+        # ==========================================
+        with tab2:
+            st.subheader("Báo cáo phân tích tổng quan")
+            if not df_calculated.empty:
+                # Trích xuất dữ liệu sạch để vẽ
+                df_chart = df_calculated.copy()
+                df_chart['vuot_khung_hien_tai'] = df_chart['vuot_khung_hien_tai'].replace(['None', '', None, 'nan'], 'Không Vượt khung')
+                
+                # Chia 2 cột cho hàng đầu tiên
+                c_bieu_1, c_bieu_2 = st.columns(2)
+                
+                with c_bieu_1:
+                    # 1. Biểu đồ Ngạch lương (Pie)
+                    df_ngach = df_chart['ngach_luong'].value_counts().reset_index()
+                    df_ngach.columns = ['Ngạch', 'Số lượng']
+                    fig_ngach = px.pie(df_ngach, values='Số lượng', names='Ngạch', title='1. Cơ cấu Cán bộ theo Ngạch lương', hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
+                    st.plotly_chart(fig_ngach, use_container_width=True)
+                
+                with c_bieu_2:
+                    # 2. Biểu đồ Vượt khung (Pie)
+                    df_vk = df_chart['vuot_khung_hien_tai'].value_counts().reset_index()
+                    df_vk.columns = ['Tình trạng', 'Số lượng']
+                    # Gộp tất cả các % vượt khung lại thành 1 nhóm "Đang hưởng Vượt khung"
+                    df_vk['Nhóm'] = df_vk['Tình trạng'].apply(lambda x: 'Không Vượt khung' if x == 'Không Vượt khung' else 'Đang hưởng Vượt khung')
+                    df_vk_group = df_vk.groupby('Nhóm')['Số lượng'].sum().reset_index()
+                    fig_vk = px.pie(df_vk_group, values='Số lượng', names='Nhóm', title='2. Tỷ lệ hưởng phụ cấp Vượt khung', color_discrete_sequence=['#17a2b8', '#ffc107'])
+                    st.plotly_chart(fig_vk, use_container_width=True)
+
+                st.divider()
+                
+                # Chia 2 cột cho hàng thứ hai
+                c_bieu_3, c_bieu_4 = st.columns(2)
+                
+                with c_bieu_3:
+                    # 3. Biểu đồ Bậc lương (Bar)
+                    df_bac = df_chart['bac_luong'].value_counts().reset_index()
+                    df_bac.columns = ['Bậc lương', 'Số lượng cán bộ']
+                    df_bac = df_bac.sort_values(by='Bậc lương')
+                    fig_bac = px.bar(df_bac, x='Bậc lương', y='Số lượng cán bộ', title='3. Phân bổ Cán bộ theo Bậc lương hiện tại', text='Số lượng cán bộ')
+                    fig_bac.update_traces(textposition='outside')
+                    st.plotly_chart(fig_bac, use_container_width=True)
+                
+                with c_bieu_4:
+                    # 4. Biểu đồ Mã ngạch (Bar ngang)
+                    df_ma = df_chart['ma_ngach'].value_counts().reset_index()
+                    df_ma.columns = ['Mã ngạch', 'Số lượng']
+                    fig_ma = px.bar(df_ma, x='Số lượng', y='Mã ngạch', orientation='h', title='4. Phân bổ theo Mã ngạch', text='Số lượng', color='Mã ngạch')
+                    fig_ma.update_layout(showlegend=False)
+                    st.plotly_chart(fig_ma, use_container_width=True)
+                    
+            else:
+                st.info("Chưa có dữ liệu để vẽ biểu đồ.")
 
     except Exception as e:
-        st.error(f"Hệ thống gặp sự cố mạng: {e}")
+        st.error(f"Hệ thống gặp sự cố: {e}")
 
 if __name__ == "__main__":
     main()
