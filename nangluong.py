@@ -171,11 +171,10 @@ def main():
                 loc_thoi_gian = st.selectbox("⏳ Lọc theo thời gian đến hạn:", 
                                             ["Tất cả", "Trong tháng này", "Trong Quý này", "Trong 6 tháng tới", "Trong năm nay", "Đã quá hạn"])
 
-            # Xử lý Lọc
+            # Thực hiện lọc
             df_display = df_calculated.copy()
             
             if search:
-                # Tìm cả trong cột Tên và Chức vụ
                 mask = df_display.astype(str).apply(lambda x: x.str.contains(search, case=False, na=False)).any(axis=1)
                 df_display = df_display[mask]
                 
@@ -184,13 +183,20 @@ def main():
                 df_display['ngay_dk_dt'] = pd.to_datetime(df_display['ngay_du_kien'], format='%d/%m/%Y', errors='coerce')
                 df_display['so_ngay'] = (df_display['ngay_dk_dt'] - today).dt.days
                 
+                # Tính toán Quý hiện tại chuẩn theo lịch
+                quy_hien_tai = (today.month - 1) // 3 + 1
+                
                 if loc_thoi_gian == "Trong tháng này":
-                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 30)]
+                    # Ép chuẩn lịch: Cùng tháng, cùng năm với hiện tại
+                    df_display = df_display[(df_display['ngay_dk_dt'].dt.month == today.month) & (df_display['ngay_dk_dt'].dt.year == today.year)]
                 elif loc_thoi_gian == "Trong Quý này":
-                    df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 90)]
+                    # Ép chuẩn lịch: Cùng quý, cùng năm với hiện tại
+                    df_display = df_display[(df_display['ngay_dk_dt'].dt.quarter == quy_hien_tai) & (df_display['ngay_dk_dt'].dt.year == today.year)]
                 elif loc_thoi_gian == "Trong 6 tháng tới":
+                    # Tính cuốn chiếu tiến lên 180 ngày
                     df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 180)]
                 elif loc_thoi_gian == "Trong năm nay":
+                    # Ép chuẩn lịch: Cùng năm
                     df_display = df_display[df_display['ngay_dk_dt'].dt.year == today.year]
                 elif loc_thoi_gian == "Đã quá hạn":
                     df_display = df_display[df_display['so_ngay'] < 0]
