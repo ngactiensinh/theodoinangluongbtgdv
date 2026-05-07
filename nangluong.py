@@ -31,34 +31,61 @@ st.set_page_config(page_title="Quản lý Lương Tuyên Quang", page_icon="📊
 
 st.markdown("""
     <style>
-    .main-header {
-        background: linear-gradient(135deg, #004B87 0%, #17a2b8 100%);
-        padding: 20px; border-radius: 12px; color: white; text-align: center; margin-bottom: 15px;
-    }
+    .main-header {background: linear-gradient(135deg, #004B87 0%, #17a2b8 100%); padding: 20px; border-radius: 12px; color: white; text-align: center; margin-bottom: 15px;}
     .stDataFrame { border: 1px solid #e6e9ef; border-radius: 10px; }
-    
-    /* Thu nhỏ 2 ô số liệu để tiết kiệm diện tích */
     .metric-container {background-color: #ffffff; padding: 15px; border-radius: 10px; border: 2px solid #e6e9ef; text-align: center; height: 100px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
     .metric-label {font-size: 14px; color: #004B87; font-weight: bold; text-transform: uppercase; margin-bottom: 2px;}
     .metric-value {font-size: 38px; color: #C8102E; font-weight: 900; margin: 0;}
-    
-    /* Thu gọn khoảng cách các thành phần trong tab */
     .block-container {padding-top: 1rem; padding-bottom: 1rem;}
+    
+    /* Style cho Sidebar đăng nhập */
+    section[data-testid="stSidebar"] {background-color: #f0f2f6; border-right: 1px solid #e0e0e0;}
+    .admin-status {padding: 10px; border-radius: 5px; text-align: center; font-weight: bold; margin-bottom: 20px;}
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header"><h2 style="margin:0;">📈 HỆ THỐNG QUẢN LÝ LƯƠNG</h2><p style="margin:0; font-size:14px;">Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang</p></div>', unsafe_allow_html=True)
+# 2. HỆ THỐNG PHÂN QUYỀN (Mặc định là User)
+if "role" not in st.session_state:
+    st.session_state.role = "user" # Mặc định cho mọi người vào là User
 
-# 2. KẾT NỐI SUPABASE
+# --- SIDEBAR: KHU VỰC CHO QUẢN TRỊ ---
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/a/a1/Logo_CPV.svg", width=80)
+    st.markdown("### 🔐 CỔNG QUẢN TRỊ")
+    
+    if st.session_state.role == "user":
+        st.info("Chế độ: ĐANG XEM (Hạn chế sửa)")
+        with st.expander("👉 Đăng nhập Quản trị"):
+            admin_pwd = st.text_input("Mật khẩu Admin:", type="password")
+            if st.button("Xác nhận Admin", use_container_width=True):
+                if admin_pwd == "admin123": # Mật khẩu của sếp
+                    st.session_state.role = "admin"
+                    st.success("Đã chuyển sang quyền Admin!")
+                    st.rerun()
+                else:
+                    st.error("Sai mật khẩu rồi sếp!")
+    else:
+        st.markdown("<div class='admin-status' style='background-color:#d4edda; color:#155724;'>✅ QUYỀN ADMIN: ĐÃ KÍCH HOẠT</div>", unsafe_allow_html=True)
+        if st.button("🚪 Thoát quyền Admin", use_container_width=True):
+            st.session_state.role = "user"
+            st.rerun()
+    
+    st.markdown("---")
+    st.caption("Phát triển bởi: Bạn Tuấn thân thiện 🚀")
+
+# 3. TIÊU ĐỀ CHÍNH
+st.markdown('<div class="main-header"><h2 style="margin:0;">📈 HỆ THỐNG QUẢN LÝ LƯƠNG 4.0</h2><p style="margin:0; font-size:14px;">Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang</p></div>', unsafe_allow_html=True)
+
+# 4. KẾT NỐI SUPABASE
 try:
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
     supabase = create_client(url, key)
 except Exception as e:
-    st.error("Sếp Tuấn ơi, kiểm tra lại file Secrets trên Streamlit Cloud nhé!")
+    st.error("Lỗi kết nối cơ sở dữ liệu. Sếp kiểm tra lại Secrets nhé!")
     st.stop()
 
-# 3. CÁC HÀM XỬ LÝ DỮ LIỆU
+# 5. CÁC HÀM XỬ LÝ DỮ LIỆU
 def format_ma_ngach(val):
     if pd.isna(val) or val == "" or str(val).lower() == "nan": return ""
     val_str = str(val).strip()
@@ -149,7 +176,7 @@ def tao_file_word_dien_bien(df, thang_chon="Tất cả", nam_chon="Tất cả"):
         for i in range(11): row_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     bio = io.BytesIO(); doc.save(bio); return bio.getvalue()
 
-# 5. GIAO DIỆN CHÍNH
+# 6. GIAO DIỆN CHÍNH
 def main():
     try:
         res = supabase.table("theo_doi_luong").select("*").execute()
@@ -181,114 +208,113 @@ def main():
             if loc_thang != "Tất cả": df_display = df_display[df_display['ngay_temp'].dt.month == int(loc_thang)]
             df_display['ma_ngach'] = df_display['ma_ngach'].apply(format_ma_ngach)
             
-            edited_df = st.data_editor(
-                df_display.style.map(lambda x: 'color:red; font-weight:bold' if any(s in str(x) for s in ["Sắp đến", "Quá hạn"]) else 'color:green', subset=['trang_thai']),
-                num_rows="dynamic", use_container_width=True, hide_index=True,
-                column_config={"ma_ngach": st.column_config.TextColumn("Mã ngạch")},
-                disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"]
-            )
-            
+            # --- KIỂM TRA QUYỀN ADMIN ĐỂ CHO PHÉP SỬA ---
+            if st.session_state.role == "admin":
+                st.info("💡 QUYỀN ADMIN: Sếp có thể sửa trực tiếp trên bảng dưới đây.")
+                edited_df = st.data_editor(
+                    df_display.style.map(lambda x: 'color:red; font-weight:bold' if any(s in str(x) for s in ["Sắp đến", "Quá hạn"]) else 'color:green', subset=['trang_thai']),
+                    num_rows="dynamic", use_container_width=True, hide_index=True,
+                    column_config={"ma_ngach": st.column_config.TextColumn("Mã ngạch")},
+                    disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"]
+                )
+                export_data = edited_df.data if hasattr(edited_df, 'data') else edited_df
+            else:
+                st.caption("👁️ CHẾ ĐỘ XEM: Anh em có thể tra cứu và tải báo cáo (Liên hệ Quản trị để cập nhật số liệu).")
+                st.dataframe(
+                    df_display.style.map(lambda x: 'color:red; font-weight:bold' if any(s in str(x) for s in ["Sắp đến", "Quá hạn"]) else 'color:green', subset=['trang_thai']),
+                    use_container_width=True, hide_index=True,
+                    column_config={"ma_ngach": st.column_config.TextColumn("Mã ngạch")}
+                )
+                export_data = df_display
+
             st.write("---")
-            col_l, col_e, col_w = st.columns(3)
-            with col_l:
-                if st.button("💾 Lưu thay đổi", use_container_width=True):
-                    curr = edited_df.data if hasattr(edited_df, 'data') else edited_df
-                    recs = []
-                    for r in curr[curr['ho_ten'].str.strip().astype(bool)].to_dict(orient="records"):
-                        recs.append({k: (None if pd.isna(v) or v == "" else v) for k, v in r.items() if k not in ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai", "id", "ngay_temp"]})
-                    supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Hết").execute()
-                    if recs: supabase.table("theo_doi_luong").insert(recs).execute()
-                    st.success("Đã lưu!"); st.rerun()
             
-            with col_e:
+            # --- HIỂN THỊ CÁC NÚT TÁC VỤ ---
+            cols = st.columns(3) if st.session_state.role == "admin" else st.columns(2)
+            
+            if st.session_state.role == "admin":
+                with cols[0]:
+                    if st.button("💾 Lưu thay đổi", use_container_width=True):
+                        recs = []
+                        for r in export_data[export_data['ho_ten'].str.strip().astype(bool)].to_dict(orient="records"):
+                            recs.append({k: (None if pd.isna(v) or v == "" else v) for k, v in r.items() if k not in ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai", "id", "ngay_temp"]})
+                        supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Hết").execute()
+                        if recs: supabase.table("theo_doi_luong").insert(recs).execute()
+                        st.success("Đã lưu!"); st.rerun()
+                col_excel, col_word = cols[1], cols[2]
+            else:
+                col_excel, col_word = cols[0], cols[1]
+            
+            with col_excel:
                 try:
                     from openpyxl.styles import PatternFill, Font
                     try: from openpyxl.utils import get_column_letter
                     except: from openpyxl.utils.cell import get_column_letter
                     buf_e = io.BytesIO()
                     with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
-                        edited_df.to_excel(wr, index=False, sheet_name='Luong')
+                        export_data.to_excel(wr, index=False, sheet_name='Luong')
                         ws = wr.sheets['Luong']
-                        for col_num in range(1, len(edited_df.columns) + 1):
+                        for col_num in range(1, len(export_data.columns) + 1):
                             cell = ws.cell(row=1, column=col_num)
                             cell.fill = PatternFill(start_color="004B87", end_color="004B87", fill_type="solid")
                             cell.font = Font(bold=True, color="FFFFFF")
                             ws.column_dimensions[get_column_letter(col_num)].width = 20
-                    st.download_button("📥 Xuất Excel", buf_e.getvalue(), "Bao_Cao.xlsx", use_container_width=True)
-                except Exception as ex: st.warning(f"Lỗi vẽ Excel: {ex}")
+                    st.download_button("📥 Xuất báo cáo Excel", buf_e.getvalue(), "Bao_Cao.xlsx", use_container_width=True)
+                except Exception as ex: st.warning(f"Lỗi Excel: {ex}")
             
-            with col_w:
-                st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df, loc_thang, loc_nam), "Dien_Bien.docx", use_container_width=True)
+            with col_word:
+                st.download_button("📝 Xuất Tờ trình Word", tao_file_word_dien_bien(export_data, loc_thang, loc_nam), "Dien_Bien.docx", use_container_width=True)
 
         with tab2:
-            # --- TÍNH TOÁN SỐ LIỆU TỔNG ---
             tong_nv = len(df_calculated[df_calculated['ho_ten'].str.strip() != ""])
             sap_den_han = len(df_calculated[df_calculated['trang_thai'].str.contains("Sắp|quá", na=False, case=False)])
             
-            # --- HÀNG 1: 2 Ô SỐ LIỆU ĐƯỢC THU NHỎ ---
-            r1c1, r1c2, r1c3, r1c4 = st.columns(4) # Dùng 4 cột để ép 2 ô này nhỏ lại nằm ở giữa
+            r1c1, r1c2, r1c3, r1c4 = st.columns(4) 
             with r1c2:
                 st.markdown(f"<div class='metric-container'><div class='metric-label'>TỔNG SỐ CÁN BỘ</div><div class='metric-value' style='color:#004B87;'>{tong_nv}</div></div>", unsafe_allow_html=True)
             with r1c3:
-                st.markdown(f"<div class='metric-container'><div class='metric-label'>SẮP ĐẾN HẠN</div><div class='metric-value'>{sap_den_han}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-container'><div class='metric-label'>SẮP ĐẾN HẠN / QUÁ HẠN</div><div class='metric-value'>{sap_den_han}</div></div>", unsafe_allow_html=True)
             
-            # --- CHIỀU CAO TIÊU CHUẨN CHO 4 BIỂU ĐỒ (Để fit màn hình) ---
             CHART_HEIGHT = 280
             MARGINS = dict(t=30, b=10, l=10, r=10)
             TITLE_FONT = dict(size=14, color='#004B87', family='Arial')
             
-            # --- HÀNG 2: MÃ NGẠCH & NGẠCH LƯƠNG ---
             r2c1, r2c2 = st.columns(2)
-            
-            # 1. Biểu đồ Mã ngạch
             df_ma = df_calculated['ma_ngach'].value_counts().reset_index()
             df_ma = df_ma[df_ma['ma_ngach'].str.strip() != ""]
             fig_ma = px.bar(df_ma, x='ma_ngach', y='count', text='count', color='count', color_continuous_scale='Blues')
             fig_ma.update_traces(textposition='outside', marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
-            fig_ma.update_layout(title=dict(text="1. MÃ NGẠCH LƯƠNG", x=0.5, font=TITLE_FONT),
-                                xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',
-                                height=CHART_HEIGHT, margin=MARGINS)
+            fig_ma.update_layout(title=dict(text="1. MÃ NGẠCH LƯƠNG", x=0.5, font=TITLE_FONT), xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)', height=CHART_HEIGHT, margin=MARGINS)
             fig_ma.update_yaxes(showgrid=True, gridcolor='#e6e6e6', showticklabels=False)
             with r2c1: st.plotly_chart(fig_ma, use_container_width=True)
 
-            # 2. Biểu đồ Ngạch lương (Bar chart nằm ngang để chữ dài không bị đè)
             df_ngach = df_calculated['ngach_luong'].value_counts().reset_index()
             df_ngach = df_ngach[df_ngach['ngach_luong'].str.strip() != ""]
             fig_ngach = px.bar(df_ngach, y='ngach_luong', x='count', text='count', orientation='h', color='count', color_continuous_scale='Teal')
             fig_ngach.update_traces(textposition='outside', marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
-            fig_ngach.update_layout(title=dict(text="2. NGẠCH LƯƠNG", x=0.5, font=TITLE_FONT),
-                                xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',
-                                height=CHART_HEIGHT, margin=MARGINS)
+            fig_ngach.update_layout(title=dict(text="2. NGẠCH LƯƠNG", x=0.5, font=TITLE_FONT), xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)', height=CHART_HEIGHT, margin=MARGINS)
             fig_ngach.update_xaxes(showgrid=True, gridcolor='#e6e6e6', showticklabels=False)
             with r2c2: st.plotly_chart(fig_ngach, use_container_width=True)
 
-            # --- HÀNG 3: BẬC LƯƠNG & HỆ SỐ LƯƠNG ---
             r3c1, r3c2 = st.columns(2)
-            
-            # 3. Biểu đồ Bậc lương (Donut)
             df_bac = df_calculated['bac_luong'].value_counts().reset_index()
             df_bac = df_bac[df_bac['bac_luong'].str.strip() != ""]
             fig_bac = px.pie(df_bac, names='bac_luong', values='count', hole=0.5, color_discrete_sequence=px.colors.sequential.PuBu)
             fig_bac.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=2)))
-            fig_bac.update_layout(title=dict(text="3. BẬC LƯƠNG HIỆN HƯỞNG", x=0.5, font=TITLE_FONT),
-                                showlegend=False, height=CHART_HEIGHT, margin=MARGINS)
+            fig_bac.update_layout(title=dict(text="3. BẬC LƯƠNG HIỆN HƯỞNG", x=0.5, font=TITLE_FONT), showlegend=False, height=CHART_HEIGHT, margin=MARGINS)
             with r3c1: st.plotly_chart(fig_bac, use_container_width=True)
                 
-            # 4. Biểu đồ Hệ số lương hiện tại
             df_hs = df_calculated['he_so_hien_tai'].value_counts().reset_index()
             df_hs = df_hs[df_hs['he_so_hien_tai'].astype(str).str.strip() != ""]
-            # Sắp xếp trục X theo hệ số từ thấp đến cao cho logic
             df_hs = df_hs.sort_values(by='he_so_hien_tai') 
             fig_hs = px.bar(df_hs, x='he_so_hien_tai', y='count', text='count', color='count', color_continuous_scale='Purples')
             fig_hs.update_traces(textposition='outside', marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
-            fig_hs.update_layout(title=dict(text="4. HỆ SỐ LƯƠNG HIỆN TẠI", x=0.5, font=TITLE_FONT),
-                                xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',
-                                height=CHART_HEIGHT, margin=MARGINS, xaxis_type='category')
+            fig_hs.update_layout(title=dict(text="4. HỆ SỐ LƯƠNG HIỆN TẠI", x=0.5, font=TITLE_FONT), xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)', height=CHART_HEIGHT, margin=MARGINS, xaxis_type='category')
             fig_hs.update_yaxes(showgrid=True, gridcolor='#e6e6e6', showticklabels=False)
             with r3c2: st.plotly_chart(fig_hs, use_container_width=True)
 
     except Exception as e:
-        st.error(f"Lỗi hệ thống: {e}")
+        st.error(f"Lỗi: {e}")
 
 if __name__ == "__main__":
     main()
