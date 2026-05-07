@@ -160,14 +160,11 @@ def main():
         tab1, tab2 = st.tabs(["📋 Quản lý & Lọc Dữ liệu", "📊 Bảng Thống kê (Dashboard)"])
 
         # ==========================================
-        # TAB 1: BẢNG DỮ LIỆU & BỘ LỌC (Đã mang trả lại sếp)
-        # ==========================================
-        # ==========================================
-        # TAB 1: BẢNG DỮ LIỆU & BỘ LỌC (ĐÃ NÂNG CẤP)
+        # TAB 1: BẢNG DỮ LIỆU & BỘ LỌC (BẢN TỐI THƯỢNG)
         # ==========================================
         with tab1:
-            # 🌟 BỘ LỌC ĐA CHIỀU (QUÁ KHỨ - HIỆN TẠI - TƯƠNG LAI) 🌟
-            c1, c2, c3, c4 = st.columns([1.5, 1.2, 1.2, 1])
+            # 🌟 BỘ LỌC ĐA CHIỀU - THÊM CHỌN THÁNG 🌟
+            c1, c2, c3, c4, c5 = st.columns([1.5, 1.2, 1.2, 0.8, 0.8])
             with c1:
                 search = st.text_input("🔍 Tra cứu tên / chức vụ:", placeholder="Gõ tên tìm nhanh...")
             with c2:
@@ -177,9 +174,12 @@ def main():
                 loai_ngay_loc = st.selectbox("📅 Báo cáo theo ngày nào?", 
                                             ["Ngày dự kiến (Tương lai)", "Ngày gần nhất (Đã nâng)"])
             with c4:
-                # Tạo danh sách năm từ 2020 đến 2035 cho trọn vẹn các nhiệm kỳ
                 danh_sach_nam = ["Tất cả"] + [str(year) for year in range(2020, 2036)]
-                loc_nam = st.selectbox("🎯 Chọn Năm cụ thể:", danh_sach_nam, index=0)
+                loc_nam = st.selectbox("🎯 Chọn Năm:", danh_sach_nam, index=0)
+            with c5:
+                # Thêm danh sách 12 tháng
+                danh_sach_thang = ["Tất cả"] + [str(m) for m in range(1, 13)]
+                loc_thang = st.selectbox("🌙 Chọn Tháng:", danh_sach_thang, index=0)
 
             # Xử lý Lọc Dữ Liệu
             df_display = df_calculated.copy()
@@ -210,19 +210,21 @@ def main():
                     
                 df_display = df_display.drop(columns=['ngay_dk_dt_temp', 'so_ngay'], errors='ignore')
 
-            # 3. Lọc theo NĂM CỤ THỂ (Dành cho báo cáo nhiệm kỳ)
-            if loc_nam != "Tất cả":
-                # Xác định xem sếp đang muốn tra cột nào
+            # 3. Lọc theo NĂM VÀ THÁNG CỤ THỂ 
+            if loc_nam != "Tất cả" or loc_thang != "Tất cả":
                 cot_ngay = 'ngay_du_kien' if loai_ngay_loc == "Ngày dự kiến (Tương lai)" else 'ngay_gan_nhat'
+                df_display['temp_date_for_filter'] = pd.to_datetime(df_display[cot_ngay], format='%d/%m/%Y', errors='coerce')
                 
-                # Biến cột ngày thành định dạng chuẩn để rút ra cái Năm
-                df_display['temp_date_for_year'] = pd.to_datetime(df_display[cot_ngay], format='%d/%m/%Y', errors='coerce')
+                # Nếu có chọn Năm thì lọc theo Năm
+                if loc_nam != "Tất cả":
+                    df_display = df_display[df_display['temp_date_for_filter'].dt.year == int(loc_nam)]
                 
-                # Giữ lại những người có Năm khớp với Năm sếp chọn
-                df_display = df_display[df_display['temp_date_for_year'].dt.year == int(loc_nam)]
+                # Nếu có chọn Tháng thì lọc tiếp theo Tháng
+                if loc_thang != "Tất cả":
+                    df_display = df_display[df_display['temp_date_for_filter'].dt.month == int(loc_thang)]
                 
                 # Dọn rác
-                df_display = df_display.drop(columns=['temp_date_for_year'], errors='ignore')
+                df_display = df_display.drop(columns=['temp_date_for_filter'], errors='ignore')
 
             # --- KẾT THÚC ĐOẠN LỌC - HIỂN THỊ RA BẢNG DƯỚI ĐÂY ---
             def format_ma_ngach(val):
