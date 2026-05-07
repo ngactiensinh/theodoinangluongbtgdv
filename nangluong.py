@@ -8,7 +8,7 @@ import io
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- KHAI BÁO THƯ VIỆN WORD & EXCEL (GIA CỐ) ---
+# --- KHAI BÁO THƯ VIỆN WORD & EXCEL ---
 try:
     from docx import Document
     from docx.shared import Cm, Pt
@@ -147,7 +147,9 @@ def main():
         res = supabase.table("theo_doi_luong").select("*").execute()
         df_base = pd.DataFrame(res.data) if res.data else pd.DataFrame(columns=["ho_ten", "ngay_gan_nhat", "ma_ngach"])
         df_calculated = tinh_toan_nang_luong(df_base)
+        
         tab1, tab2 = st.tabs(["📋 Quản lý & Lọc Dữ liệu", "📊 Dashboard Thống kê"])
+        
         with tab1:
             c1, c2, c3, c4, c5 = st.columns([1.5, 1.2, 1.2, 0.8, 0.8])
             search = c1.text_input("🔍 Tra cứu tên / chức vụ:", placeholder="Gõ tên...")
@@ -155,24 +157,29 @@ def main():
             loai_ngay = c3.selectbox("📅 Loại ngày lọc:", ["Ngày dự kiến (Tương lai)", "Ngày gần nhất (Đã nâng)"])
             loc_nam = c4.selectbox("🎯 Năm:", ["Tất cả"] + [str(y) for y in range(2020, 2036)])
             loc_thang = c5.selectbox("🌙 Tháng:", ["Tất cả"] + [str(m) for m in range(1, 13)])
+            
             df_display = df_calculated.copy()
             if search: df_display = df_display[df_display.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
             df_display['ngay_temp'] = pd.to_datetime(df_display['ngay_du_kien' if "dự kiến" in loai_ngay else 'ngay_gan_nhat'], format='%d/%m/%Y', errors='coerce')
             today = datetime.now()
+            
             if loc_tg != "Tất cả":
                 if loc_tg == "Trong tháng này": df_display = df_display[(df_display['ngay_temp'].dt.month == today.month) & (df_display['ngay_temp'].dt.year == today.year)]
                 elif loc_tg == "Trong Quý này": df_display = df_display[(df_display['ngay_temp'].dt.quarter == (today.month-1)//3+1) & (df_display['ngay_temp'].dt.year == today.year)]
                 elif loc_tg == "Trong năm nay": df_display = df_display[df_display['ngay_temp'].dt.year == today.year]
                 elif loc_tg == "Đã quá hạn": df_display = df_display[(df_display['ngay_temp'].dt.date < today.date())]
+            
             if loc_nam != "Tất cả": df_display = df_display[df_display['ngay_temp'].dt.year == int(loc_nam)]
             if loc_thang != "Tất cả": df_display = df_display[df_display['ngay_temp'].dt.month == int(loc_thang)]
             df_display['ma_ngach'] = df_display['ma_ngach'].apply(format_ma_ngach)
+            
             edited_df = st.data_editor(
                 df_display.style.map(lambda x: 'color:red; font-weight:bold' if any(s in str(x) for s in ["Sắp đến", "Quá hạn"]) else 'color:green', subset=['trang_thai']),
                 num_rows="dynamic", use_container_width=True, hide_index=True,
                 column_config={"ma_ngach": st.column_config.TextColumn("Mã ngạch")},
                 disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"]
             )
+            
             st.write("---")
             col_l, col_e, col_w = st.columns(3)
             with col_l:
@@ -184,6 +191,7 @@ def main():
                     supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Hết").execute()
                     if recs: supabase.table("theo_doi_luong").insert(recs).execute()
                     st.success("Đã lưu!"); st.rerun()
+            
             with col_e:
                 try:
                     from openpyxl.styles import PatternFill, Font
@@ -200,64 +208,45 @@ def main():
                             ws.column_dimensions[get_column_letter(col_num)].width = 20
                     st.download_button("📥 Xuất Excel", buf_e.getvalue(), "Bao_Cao.xlsx", use_container_width=True)
                 except Exception as ex: st.warning(f"Lỗi vẽ Excel: {ex}")
+            
             with col_w:
                 st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df, loc_thang, loc_nam), "Dien_Bien.docx", use_container_width=True)
 
-       with tab2:
+        with tab2:
             st.markdown("<h3 style='color:#004B87; text-align:center; margin-top: 10px; margin-bottom: 20px;'>📊 THỐNG KÊ TỔNG QUAN CHẤT LƯỢNG ĐỘI NGŨ</h3>", unsafe_allow_html=True)
             
-            # Chia tỷ lệ cột 4.5 : 5.5 cho cân đối màn hình
             cc1, cc2 = st.columns([1, 1.2]) 
             
-            # --- 1. BIỂU ĐỒ TRÒN (DONUT CHUẨN XỊN) ---
+            # Biểu đồ Tròn
             df_p = df_calculated['bac_luong'].value_counts().reset_index()
             df_p = df_p[df_p['bac_luong'].str.strip() != ""]
-            tong_nv = df_p['count'].sum() # Tính tổng số người để nhét vào giữa bánh
+            tong_nv = df_p['count'].sum()
             
-            fig_p = px.pie(df_p, names='bac_luong', values='count', 
-                           hole=0.55, # Khoét lỗ to ra một chút
-                           color_discrete_sequence=px.colors.sequential.Blues_r) # Đổ màu Tone Xanh
-            
-            fig_p.update_traces(textposition='inside', textinfo='percent+label', 
-                                insidetextorientation='radial',
-                                marker=dict(line=dict(color='#FFFFFF', width=2)))
-            
+            fig_p = px.pie(df_p, names='bac_luong', values='count', hole=0.55, color_discrete_sequence=px.colors.sequential.Blues_r)
+            fig_p.update_traces(textposition='inside', textinfo='percent+label', insidetextorientation='radial', marker=dict(line=dict(color='#FFFFFF', width=2)))
             fig_p.update_layout(
                 title=dict(text="CƠ CẤU BẬC LƯƠNG", x=0.5, font=dict(size=16, color='#004B87', family='Arial')),
-                showlegend=False, 
-                height=400, # 🌟 KHOÁ CHIỀU CAO ĐỂ VỪA MÀN 1920x1080 🌟
-                margin=dict(t=40, b=20, l=20, r=20), # Ép lề cho gọn
+                showlegend=False, height=400, margin=dict(t=40, b=20, l=20, r=20),
                 annotations=[dict(text=f"<b>{tong_nv}</b><br>Cán bộ", x=0.5, y=0.5, font_size=20, showarrow=False, font=dict(color='#C8102E'))]
             )
-            with cc1: 
-                st.plotly_chart(fig_p, use_container_width=True)
+            with cc1: st.plotly_chart(fig_p, use_container_width=True)
                 
-            # --- 2. BIỂU ĐỒ CỘT (GỌN GÀNG, PHẲNG LÌ) ---
+            # Biểu đồ Cột
             df_b = df_calculated['ma_ngach'].value_counts().reset_index()
             df_b = df_b[df_b['ma_ngach'].str.strip() != ""]
             
-            fig_b = px.bar(df_b, x='ma_ngach', y='count', text='count', 
-                           color='count', color_continuous_scale='Blues')
-            
-            fig_b.update_traces(textposition='outside', textfont_size=14,
-                                marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
-            
+            fig_b = px.bar(df_b, x='ma_ngach', y='count', text='count', color='count', color_continuous_scale='Blues')
+            fig_b.update_traces(textposition='outside', textfont_size=14, marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
             fig_b.update_layout(
                 title=dict(text="PHÂN BỔ THEO MÃ NGẠCH", x=0.5, font=dict(size=16, color='#004B87', family='Arial')),
-                xaxis_title="", yaxis_title="", # Giấu tên trục cho đỡ rườm rà
-                xaxis_tickangle=-30, # Chữ hơi nghiêng nhẹ
-                coloraxis_showscale=False,
-                plot_bgcolor='rgba(0,0,0,0)',
-                height=400, # 🌟 ĐỒNG BỘ CHIỀU CAO VỚI BIỂU ĐỒ TRÒN 🌟
-                margin=dict(t=40, b=20, l=20, r=20)
+                xaxis_title="", yaxis_title="", xaxis_tickangle=-30, coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',
+                height=400, margin=dict(t=40, b=20, l=20, r=20)
             )
-            # Ẩn các số liệu bên trục Y vì đã có số nổi trên đầu cột rồi
             fig_b.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#e6e6e6', showticklabels=False)
-            
-            with cc2: 
-                st.plotly_chart(fig_b, use_container_width=True)
+            with cc2: st.plotly_chart(fig_b, use_container_width=True)
 
-    except Exception as e: st.error(f"Lỗi: {e}")
+    except Exception as e:
+        st.error(f"Lỗi hệ thống: {e}")
 
 if __name__ == "__main__":
     main()
