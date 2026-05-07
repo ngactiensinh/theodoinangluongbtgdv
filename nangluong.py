@@ -211,8 +211,55 @@ def main():
                 # TRUYỀN THÊM loc_thang VÀ loc_nam VÀO HÀM ĐỂ IN ĐÚNG TIÊU ĐỀ
                 st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df, loc_thang, loc_nam), "Dien_Bien.docx", use_container_width=True)
         with tab2:
-            st.plotly_chart(px.pie(df_calculated['bac_luong'].value_counts().reset_index(), names='bac_luong', values='count', title="CƠ CẤU BẬC LƯƠNG"), use_container_width=True)
-            st.plotly_chart(px.bar(df_calculated['ma_ngach'].value_counts().reset_index(), x='ma_ngach', y='count', title="PHÂN BỔ MÃ NGẠCH"), use_container_width=True)
-    except Exception as e: st.error(f"Lỗi: {e}")
+            st.markdown("<h3 style='color:#004B87; text-align:center; margin-bottom: 20px;'>📊 THỐNG KÊ TỔNG QUAN CHẤT LƯỢNG ĐỘI NGŨ</h3>", unsafe_allow_html=True)
+            
+            c1, c2 = st.columns(2)
+            
+            # --- 1. BIỂU ĐỒ TRÒN (DONUT CHART) - CƠ CẤU BẬC LƯƠNG ---
+            df_pie = df_calculated['bac_luong'].value_counts().reset_index()
+            # Lọc bỏ dòng trống (nếu có) để biểu đồ không bị móp
+            df_pie = df_pie[df_pie['bac_luong'].str.strip() != ""]
+            
+            fig_pie = px.pie(df_pie, names='bac_luong', values='count', 
+                             title="CƠ CẤU BẬC LƯƠNG", 
+                             hole=0.45, # Biến thành bánh Donut
+                             color_discrete_sequence=px.colors.qualitative.Pastel)
+            
+            # Ép chữ vào trong, ẩn chú giải bên ngoài
+            fig_pie.update_traces(textposition='inside', textinfo='percent+label', 
+                                  marker=dict(line=dict(color='#FFFFFF', width=2)))
+            fig_pie.update_layout(showlegend=False, title_x=0.5, font=dict(size=14)) 
+            
+            with c1:
+                st.plotly_chart(fig_pie, use_container_width=True)
+                
+            # --- 2. BIỂU ĐỒ CỘT - PHÂN BỔ MÃ NGẠCH ---
+            df_bar = df_calculated['ma_ngach'].value_counts().reset_index()
+            df_bar = df_bar[df_bar['ma_ngach'].str.strip() != ""]
+            
+            fig_bar = px.bar(df_bar, x='ma_ngach', y='count', 
+                             title="PHÂN BỔ THEO MÃ NGẠCH", 
+                             text='count', # Hiện số nổi trên đầu cột
+                             color='count', # Đổ màu gradient theo số lượng
+                             color_continuous_scale='Blues') # Tone màu xanh Tuyên giáo
+            
+            # Chỉnh viền cột, vị trí số
+            fig_bar.update_traces(textposition='outside', textfont_size=14,
+                                  marker_line_width=1.5, opacity=0.9)
+            
+            # Xoay chữ trục X, làm gọn giao diện
+            fig_bar.update_layout(
+                title_x=0.5, 
+                xaxis_title="", 
+                yaxis_title="Số lượng cán bộ",
+                xaxis_tickangle=-45, # Xoay nghiêng chữ 45 độ để không bị đè
+                coloraxis_showscale=False, # Ẩn thanh thước màu bên cạnh
+                plot_bgcolor='rgba(0,0,0,0)' # Nền trong suốt
+            )
+            # Kẻ sọc ngang cho dễ nhìn
+            fig_bar.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+            
+            with c2:
+                st.plotly_chart(fig_bar, use_container_width=True)
 
 if __name__ == "__main__": main()
