@@ -1,4 +1,6 @@
+streamlit
 pandas
 supabase
-plotly
 openpyxl
+python-docx
+plotly
