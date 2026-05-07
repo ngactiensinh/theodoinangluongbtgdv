@@ -19,7 +19,6 @@ except:
 
 try:
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-    # Thử lấy hàm get_column_letter từ 2 vị trí khác nhau để tránh lỗi phiên bản
     try:
         from openpyxl.utils import get_column_letter
     except ImportError:
@@ -104,7 +103,8 @@ def tinh_toan_nang_luong(df):
         else: res.at[idx, 'trang_thai'] = "Chưa đến hạn"
     return res.fillna("")
 
-def tao_file_word_dien_bien(df):
+# 4. HÀM TẠO WORD (ĐÃ SỬA LỖI TIÊU ĐỀ THÁNG/NĂM)
+def tao_file_word_dien_bien(df, thang_chon="Tất cả", nam_chon="Tất cả"):
     from docx import Document
     from docx.shared import Cm, Pt
     from docx.enum.section import WD_ORIENT
@@ -120,9 +120,16 @@ def tao_file_word_dien_bien(df):
     cl.add_run("TỈNH UỶ TUYÊN QUANG\n").bold = True; cl.add_run("BAN TUYÊN GIÁO VÀ DÂN VẬN\n*").bold = True
     cr = table_h.cell(0, 1).paragraphs[0]; cr.alignment = WD_ALIGN_PARAGRAPH.CENTER
     cr.add_run("ĐẢNG CỘNG SẢN VIỆT NAM\n").bold = True
+    
     p_t = doc.add_paragraph(); p_t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run_t = p_t.add_run("\nBIỂU TỔNG HỢP DIỄN BIẾN LƯƠNG\n"); run_t.bold = True; run_t.font.size = Pt(14)
-    run_s = p_t.add_run(f"Ban Tuyên giáo và Dân vận Tỉnh uỷ tháng {datetime.now().strftime('%m năm %Y')}"); run_s.italic = True
+    
+    # Logic lấy tháng năm từ bộ lọc để in vào tiêu đề Word
+    txt_thang = thang_chon if thang_chon != "Tất cả" else datetime.now().strftime('%m')
+    txt_nam = nam_chon if nam_chon != "Tất cả" else datetime.now().strftime('%Y')
+    
+    run_s = p_t.add_run(f"Ban Tuyên giáo và Dân vận Tỉnh uỷ tháng {txt_thang} năm {txt_nam}"); run_s.italic = True
+    
     table = doc.add_table(rows=1, cols=11); table.style = 'Table Grid'
     headers = ['TT', 'Họ và tên', 'Chức vụ', 'Mã ngạch', 'Bậc', 'Hệ số HT', 'Ngày hưởng', 'Nâng bậc', 'Hệ số mới', 'Hưởng từ', 'Ghi chú']
     for i, h in enumerate(headers):
@@ -186,10 +193,8 @@ def main():
             with col_e:
                 try:
                     from openpyxl.styles import PatternFill, Font
-                    # Cố gắng lấy hàm này một lần nữa ngay trong hàm xuất
                     try: from openpyxl.utils import get_column_letter
                     except: from openpyxl.utils.cell import get_column_letter
-                    
                     buf_e = io.BytesIO()
                     with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
                         edited_df.to_excel(wr, index=False, sheet_name='Luong')
@@ -200,11 +205,11 @@ def main():
                             cell.font = Font(bold=True, color="FFFFFF")
                             ws.column_dimensions[get_column_letter(col_num)].width = 20
                     st.download_button("📥 Xuất Excel", buf_e.getvalue(), "Bao_Cao.xlsx", use_container_width=True)
-                except Exception as ex:
-                    st.warning(f"Lỗi vẽ Excel: {ex}")
+                except Exception as ex: st.warning(f"Lỗi vẽ Excel: {ex}")
 
             with col_w:
-                st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df), "Dien_Bien.docx", use_container_width=True)
+                # TRUYỀN THÊM loc_thang VÀ loc_nam VÀO HÀM ĐỂ IN ĐÚNG TIÊU ĐỀ
+                st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df, loc_thang, loc_nam), "Dien_Bien.docx", use_container_width=True)
         with tab2:
             st.plotly_chart(px.pie(df_calculated['bac_luong'].value_counts().reset_index(), names='bac_luong', values='count', title="CƠ CẤU BẬC LƯƠNG"), use_container_width=True)
             st.plotly_chart(px.bar(df_calculated['ma_ngach'].value_counts().reset_index(), x='ma_ngach', y='count', title="PHÂN BỔ MÃ NGẠCH"), use_container_width=True)
