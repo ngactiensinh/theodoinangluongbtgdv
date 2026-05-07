@@ -7,14 +7,23 @@ import json
 import io
 import plotly.express as px
 import plotly.graph_objects as go
-from docx import Document
-from docx.shared import Cm, Pt
-from docx.enum.section import WD_ORIENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 
-# 1. CẤU HÌNH TRANG & CSS
+# THƯ VIỆN CHO WORD & EXCEL (GIA CỐ)
+try:
+    from docx import Document
+    from docx.shared import Cm, Pt
+    from docx.enum.section import WD_ORIENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+except:
+    pass
+
+try:
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+except:
+    pass
+
+# 1. CẤU HÌNH TRANG
 st.set_page_config(page_title="Quản lý Lương Tuyên Quang", page_icon="📊", layout="wide")
 
 st.markdown("""
@@ -35,23 +44,19 @@ try:
     key = st.secrets["SUPABASE_KEY"]
     supabase = create_client(url, key)
 except Exception as e:
-    st.error("Lỗi cấu hình Secrets. Sếp kiểm tra lại nhé!")
+    st.error("Sếp Tuấn ơi, kiểm tra lại Secrets trên Streamlit nhé!")
     st.stop()
 
-# 3. HÀM TÍNH TOÁN & ĐỊNH DẠNG (BỘ NÃO HỆ THỐNG)
+# 3. CÁC HÀM XỬ LÝ DỮ LIỆU
 def format_ma_ngach(val):
-    if pd.isna(val) or val == "" or str(val).lower() == "nan":
-        return ""
+    if pd.isna(val) or val == "" or str(val).lower() == "nan": return ""
     val_str = str(val).strip()
-    if val_str.endswith(".0"):
-        val_str = val_str[:-2]
-    return val_str
+    return val_str[:-2] if val_str.endswith(".0") else val_str
 
 def tinh_toan_nang_luong(df):
     res = df.copy()
     if res.empty: return res
     today = datetime.now().date()
-    
     for idx, row in res.iterrows():
         ngach = str(row.get('ngach_luong', '')).strip().upper()
         chuc_vu = str(row.get('chuc_vu', '')).strip().upper()
@@ -59,128 +64,86 @@ def tinh_toan_nang_luong(df):
         hs_str = str(row.get('he_so_hien_tai', '0')).replace(',', '.')
         try: hs_ht = float(hs_str)
         except: hs_ht = 0.0
-            
         vk_ht = str(row.get('vuot_khung_hien_tai', 'None')).strip()
         ngay_ht_str = str(row.get('ngay_gan_nhat', ''))
-        
-        try: ngay_ht = datetime.strptime(ngay_ht_str, '%d/%m/%Y').date()
+        try:
+            ngay_ht = datetime.strptime(ngay_ht_str, '%d/%m/%Y').date()
         except:
             for col in ['bac_luong_moi', 'he_so_moi', 'vuot_khung_moi', 'ngay_du_kien']: res.at[idx, col] = ""
             res.at[idx, 'trang_thai'] = "Chưa có ngày"
             continue
-            
-        is_vk = False
-        vk_val = 0
-        if vk_ht.lower() != 'none' and '%' in vk_ht:
-            is_vk = True
-            vk_val = int(vk_ht.replace('%', '').strip())
-            
+        is_vk = (vk_ht.lower() != 'none' and '%' in vk_ht)
         bac_moi, hs_moi, vk_moi, ngay_dk = bac_ht, hs_ht, vk_ht, ngay_ht
-        
         if is_vk:
-            ngay_dk = ngay_ht + relativedelta(years=1)
-            vk_moi = f"{vk_val + 1}%"
+            vk_val = int(vk_ht.replace('%', '').strip())
+            ngay_dk = ngay_ht + relativedelta(years=1); vk_moi = f"{vk_val + 1}%"
         else:
             try:
-                if '/' in bac_ht:
-                    x, y = map(int, bac_ht.split('/'))
-                else:
-                    x, y = int(bac_ht), 99
-                
+                if '/' in bac_ht: x, y = map(int, bac_ht.split('/'))
+                else: x, y = int(bac_ht), 99
                 if x >= y:
-                    ngay_dk = ngay_ht + relativedelta(years=3) 
-                    vk_moi = "5%"
+                    ngay_dk = ngay_ht + relativedelta(years=3); vk_moi = "5%"
                 else:
                     bac_moi = f"{x+1}/{y}"
                     interval = 2 if any(k in ngach or k in chuc_vu for k in ['KẾ TOÁN VIÊN TRUNG CẤP', 'LÁI XE', 'PHỤC VỤ', 'VĂN THƯ']) else 3
-                    if 'CVC' in ngach: delta = 0.34
-                    elif 'CVCC' in ngach: delta = 0.62
-                    else: delta = 0.33
-                    ngay_dk = ngay_ht + relativedelta(years=interval)
-                    hs_moi = hs_ht + delta
+                    delta = 0.34 if 'CVC' in ngach else (0.62 if 'CVCC' in ngach else 0.33)
+                    ngay_dk = ngay_ht + relativedelta(years=interval); hs_moi = hs_ht + delta
             except: pass
-                
         res.at[idx, 'bac_luong_moi'] = bac_moi
         res.at[idx, 'he_so_moi'] = f"{hs_moi:.2f}".replace('.', ',')
         res.at[idx, 'vuot_khung_moi'] = vk_moi
         res.at[idx, 'ngay_du_kien'] = ngay_dk.strftime('%d/%m/%Y')
-        
         days_left = (ngay_dk - today).days
         if days_left < 0: res.at[idx, 'trang_thai'] = "Đã quá hạn"
         elif days_left <= 30: res.at[idx, 'trang_thai'] = "Sắp đến hạn (Tháng này)"
         elif days_left <= 90: res.at[idx, 'trang_thai'] = "Sắp đến hạn (Quý này)"
         else: res.at[idx, 'trang_thai'] = "Chưa đến hạn"
-            
     return res.fillna("")
 
-# 4. HÀM XUẤT FILE (WORD & EXCEL)
+# 4. HÀM TẠO WORD (BIỂU MẪU DIỄN BIẾN)
 def tao_file_word_dien_bien(df):
+    from docx import Document
+    from docx.shared import Cm, Pt
+    from docx.enum.section import WD_ORIENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
     doc = Document()
     section = doc.sections[0]
     section.orientation = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = section.page_height, section.page_width
     for m in ['left', 'right', 'top', 'bottom']: setattr(section, f'{m}_margin', Cm(1.5))
-
     table_h = doc.add_table(rows=1, cols=2)
     table_h.columns[0].width, table_h.columns[1].width = Cm(10), Cm(16)
-    cl = table_h.cell(0, 0).paragraphs[0]
-    cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    cl.add_run("TỈNH UỶ TUYÊN QUANG\n").bold = True
-    cl.add_run("BAN TUYÊN GIÁO VÀ DÂN VẬN\n*").bold = True
-    cr = table_h.cell(0, 1).paragraphs[0]
-    cr.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cl = table_h.cell(0, 0).paragraphs[0]; cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cl.add_run("TỈNH UỶ TUYÊN QUANG\n").bold = True; cl.add_run("BAN TUYÊN GIÁO VÀ DÂN VẬN\n*").bold = True
+    cr = table_h.cell(0, 1).paragraphs[0]; cr.alignment = WD_ALIGN_PARAGRAPH.CENTER
     cr.add_run("ĐẢNG CỘNG SẢN VIỆT NAM\n").bold = True
-
-    p_t = doc.add_paragraph()
-    p_t.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run_t = p_t.add_run("\nBIỂU TỔNG HỢP DIỄN BIẾN LƯƠNG\n")
-    run_t.bold = True
-    run_t.font.size = Pt(14)
-    run_s = p_t.add_run(f"Ban Tuyên giáo và Dân vận Tỉnh uỷ tháng {datetime.now().strftime('%m năm %Y')}")
-    run_s.italic = True
-
+    p_t = doc.add_paragraph(); p_t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run_t = p_t.add_run("\nBIỂU TỔNG HỢP DIỄN BIẾN LƯƠNG\n"); run_t.bold = True; run_t.font.size = Pt(14)
+    run_s = p_t.add_run(f"Ban Tuyên giáo và Dân vận Tỉnh uỷ tháng {datetime.now().strftime('%m năm %Y')}"); run_s.italic = True
     table = doc.add_table(rows=1, cols=11); table.style = 'Table Grid'
-    headers = ['TT', 'Họ và tên', 'Chức vụ', 'Mã ngạch', 'Bậc', 'Hệ số hiện tại', 'Ngày hưởng', 'Nâng bậc tiếp', 'Hệ số mới', 'Hưởng từ ngày', 'Ghi chú']
-    widths = [Cm(1), Cm(3.5), Cm(3), Cm(2.2), Cm(1.5), Cm(2.5), Cm(2.3), Cm(2.3), Cm(2.5), Cm(2.3), Cm(2.5)]
+    headers = ['TT', 'Họ và tên', 'Chức vụ', 'Mã ngạch', 'Bậc', 'Hệ số HT', 'Ngày hưởng', 'Nâng bậc', 'Hệ số mới', 'Hưởng từ', 'Ghi chú']
     for i, h in enumerate(headers):
-        cell = table.rows[0].cells[i]
-        cell.text = h
-        cell.paragraphs[0].runs[0].bold = True
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    for idx, row in enumerate(df.iterrows(), 1):
-        r = row[1]
+        cell = table.rows[0].cells[i]; cell.text = h; cell.paragraphs[0].runs[0].bold = True; cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for idx, (index, r) in enumerate(df.iterrows(), 1):
         row_cells = table.add_row().cells
-        row_cells[0].text = str(idx)
-        row_cells[1].text = str(r.get('ho_ten', ''))
-        row_cells[2].text = str(r.get('chuc_vu', ''))
-        row_cells[3].text = str(r.get('ma_ngach', ''))
-        row_cells[4].text = str(r.get('bac_luong', ''))
-        
+        row_cells[0].text = str(idx); row_cells[1].text = str(r.get('ho_ten', '')); row_cells[2].text = str(r.get('chuc_vu', ''))
+        row_cells[3].text = str(r.get('ma_ngach', '')); row_cells[4].text = str(r.get('bac_luong', ''))
         hs_ht = f"{r.get('he_so_hien_tai', '')}"
-        if r.get('vuot_khung_hien_tai', '') not in ['', 'None']: hs_ht += f" (VK {r.get('vuot_khung_hien_tai')})"
-        row_cells[5].text = hs_ht
-        row_cells[6].text = str(r.get('ngay_gan_nhat', ''))
-        row_cells[7].text = str(r.get('bac_luong_moi', ''))
-        
+        if r.get('vuot_khung_hien_tai', '') not in ['', 'None', 'nan']: hs_ht += f" (VK {r.get('vuot_khung_hien_tai')})"
+        row_cells[5].text = hs_ht; row_cells[6].text = str(r.get('ngay_gan_nhat', '')); row_cells[7].text = str(r.get('bac_luong_moi', ''))
         hs_m = f"{r.get('he_so_moi', '')}"
-        if r.get('vuot_khung_moi', '') not in ['', 'None']: hs_m += f" (VK {r.get('vuot_khung_moi')})"
-        row_cells[8].text = hs_m
-        row_cells[9].text = str(r.get('ngay_du_kien', ''))
-        row_cells[10].text = "Nâng lương thường xuyên"
+        if r.get('vuot_khung_moi', '') not in ['', 'None', 'nan']: hs_m += f" (VK {r.get('vuot_khung_moi')})"
+        row_cells[8].text = hs_m; row_cells[9].text = str(r.get('ngay_du_kien', '')); row_cells[10].text = "Nâng lương TX"
         for i in range(11): row_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
     bio = io.BytesIO(); doc.save(bio); return bio.getvalue()
 
 # 5. GIAO DIỆN CHÍNH
 def main():
     try:
         res = supabase.table("theo_doi_luong").select("*").execute()
-        df = pd.DataFrame(res.data) if res.data else pd.DataFrame(columns=["ho_ten", "ngay_gan_nhat", "ma_ngach"])
-        df_calculated = tinh_toan_nang_luong(df)
-        
+        df_base = pd.DataFrame(res.data) if res.data else pd.DataFrame(columns=["ho_ten", "ngay_gan_nhat", "ma_ngach"])
+        df_calculated = tinh_toan_nang_luong(df_base)
         tab1, tab2 = st.tabs(["📋 Quản lý & Lọc Dữ liệu", "📊 Dashboard Thống kê"])
-
         with tab1:
             c1, c2, c3, c4, c5 = st.columns([1.5, 1.2, 1.2, 0.8, 0.8])
             search = c1.text_input("🔍 Tra cứu tên / chức vụ:", placeholder="Gõ tên...")
@@ -188,31 +151,24 @@ def main():
             loai_ngay = c3.selectbox("📅 Loại ngày lọc:", ["Ngày dự kiến (Tương lai)", "Ngày gần nhất (Đã nâng)"])
             loc_nam = c4.selectbox("🎯 Năm:", ["Tất cả"] + [str(y) for y in range(2020, 2036)])
             loc_thang = c5.selectbox("🌙 Tháng:", ["Tất cả"] + [str(m) for m in range(1, 13)])
-
             df_display = df_calculated.copy()
             if search: df_display = df_display[df_display.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
-            
             df_display['ngay_temp'] = pd.to_datetime(df_display['ngay_du_kien' if "dự kiến" in loai_ngay else 'ngay_gan_nhat'], format='%d/%m/%Y', errors='coerce')
-            
+            today = datetime.now()
             if loc_tg != "Tất cả":
-                today = datetime.now()
                 if loc_tg == "Trong tháng này": df_display = df_display[(df_display['ngay_temp'].dt.month == today.month) & (df_display['ngay_temp'].dt.year == today.year)]
                 elif loc_tg == "Trong Quý này": df_display = df_display[(df_display['ngay_temp'].dt.quarter == (today.month-1)//3+1) & (df_display['ngay_temp'].dt.year == today.year)]
                 elif loc_tg == "Trong năm nay": df_display = df_display[df_display['ngay_temp'].dt.year == today.year]
                 elif loc_tg == "Đã quá hạn": df_display = df_display[(df_display['ngay_temp'].dt.date < today.date())]
-
             if loc_nam != "Tất cả": df_display = df_display[df_display['ngay_temp'].dt.year == int(loc_nam)]
             if loc_thang != "Tất cả": df_display = df_display[df_display['ngay_temp'].dt.month == int(loc_thang)]
-            
             df_display['ma_ngach'] = df_display['ma_ngach'].apply(format_ma_ngach)
-            
             edited_df = st.data_editor(
                 df_display.style.map(lambda x: 'color:red; font-weight:bold' if any(s in str(x) for s in ["Sắp đến", "Quá hạn"]) else 'color:green', subset=['trang_thai']),
                 num_rows="dynamic", use_container_width=True, hide_index=True,
                 column_config={"ma_ngach": st.column_config.TextColumn("Mã ngạch")},
                 disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"]
             )
-
             st.write("---")
             col_l, col_e, col_w = st.columns(3)
             with col_l:
@@ -224,35 +180,24 @@ def main():
                     supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Hết").execute()
                     if recs: supabase.table("theo_doi_luong").insert(recs).execute()
                     st.success("Đã lưu!"); st.rerun()
-
             with col_e:
-                # Xuất Excel Bản Đẹp
+                from openpyxl.styles import PatternFill, Font
+                from openpyxl.utils import get_column_letter
                 buf_e = io.BytesIO()
                 with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
                     edited_df.to_excel(wr, index=False, sheet_name='Luong')
                     ws = wr.sheets['Luong']
-                    for col_num, col_name in enumerate(edited_df.columns, 1):
+                    for col_num in range(1, len(edited_df.columns) + 1):
                         cell = ws.cell(row=1, column=col_num)
                         cell.fill = PatternFill(start_color="004B87", end_color="004B87", fill_type="solid")
                         cell.font = Font(bold=True, color="FFFFFF")
-                    for i, col in enumerate(ws.columns, 1):
-                        ws.column_dimensions[get_column_letter(i)].width = 20
-                st.download_button("📥 Xuất Excel Bản Đẹp", buf_e.getvalue(), "Bao_Cao.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-
+                        ws.column_dimensions[get_column_letter(col_num)].width = 20
+                st.download_button("📥 Xuất Excel", buf_e.getvalue(), "Bao_Cao.xlsx", use_container_width=True)
             with col_w:
-                st.download_button("📝 Xuất Word Diễn Biến", tao_file_word_dien_bien(edited_df), "Dien_Bien.docx", use_container_width=True)
-
+                st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df), "Dien_Bien.docx", use_container_width=True)
         with tab2:
-            # DASHBOARD CLONE GOOGLE SHEETS
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.plotly_chart(px.bar(df_calculated['ma_ngach'].value_counts().reset_index(), x='ma_ngach', y='count', title="MÃ NGẠCH").update_layout(paper_bgcolor='#f8e4b7'), use_container_width=True)
-            with c2:
-                st.plotly_chart(px.bar(df_calculated['ngach_luong'].value_counts().reset_index(), x='count', y='ngach_luong', orientation='h', title="NGẠCH LƯƠNG").update_layout(paper_bgcolor='#f1f1f1'), use_container_width=True)
-            with c3:
-                st.plotly_chart(px.pie(df_calculated['bac_luong'].value_counts().reset_index(), names='bac_luong', values='count', title="BẬC LƯƠNG").update_layout(paper_bgcolor='#e2ccd9'), use_container_width=True)
-            st.plotly_chart(px.bar(df_calculated['he_so_hien_tai'].value_counts().reset_index(), x='he_so_hien_tai', y='count', title="HỆ SỐ LƯƠNG HIỆN TẠI"), use_container_width=True)
-
-    except Exception as e: st.error(f"Sự cố: {e}")
+            st.plotly_chart(px.pie(df_calculated['bac_luong'].value_counts().reset_index(), names='bac_luong', values='count', title="CƠ CẤU BẬC LƯƠNG"), use_container_width=True)
+            st.plotly_chart(px.bar(df_calculated['ma_ngach'].value_counts().reset_index(), x='ma_ngach', y='count', title="PHÂN BỔ MÃ NGẠCH"), use_container_width=True)
+    except Exception as e: st.error(f"Lỗi: {e}")
 
 if __name__ == "__main__": main()
