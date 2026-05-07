@@ -124,7 +124,123 @@ def tinh_toan_nang_luong(df):
     # Dọn dẹp lỗi hiển thị chữ 'nan' thừa mứa
     res = res.fillna("")
     return res
+import io
+from docx import Document
+from docx.shared import Cm, Pt
+from docx.enum.section import WD_ORIENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from datetime import datetime
 
+def tao_file_word_dien_bien(df):
+    doc = Document()
+    
+    # 1. Cài đặt khổ giấy ngang A4
+    section = doc.sections[0]
+    new_w, new_h = section.page_height, section.page_width
+    section.orientation = WD_ORIENT.LANDSCAPE
+    section.page_width = new_w
+    section.page_height = new_h
+    section.left_margin = Cm(1.5)
+    section.right_margin = Cm(1.5)
+    section.top_margin = Cm(1.5)
+    section.bottom_margin = Cm(1.5)
+
+    # 2. Header: Quốc hiệu, Tiêu ngữ / Đảng hiệu
+    table_header = doc.add_table(rows=1, cols=2)
+    table_header.autofit = False
+    table_header.columns[0].width = Cm(10)
+    table_header.columns[1].width = Cm(16)
+
+    # Cột trái (Đã đổi Hà Giang thành Tuyên Quang)
+    cell_left = table_header.cell(0, 0)
+    p_left = cell_left.paragraphs[0]
+    p_left.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run1 = p_left.add_run("TỈNH UỶ TUYÊN QUANG\n")
+    run1.bold = True
+    run2 = p_left.add_run("BAN TUYÊN GIÁO VÀ DÂN VẬN\n")
+    run2.bold = True
+    p_left.add_run("*")
+
+    # Cột phải
+    cell_right = table_header.cell(0, 1)
+    p_right = cell_right.paragraphs[0]
+    p_right.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run3 = p_right.add_run("ĐẢNG CỘNG SẢN VIỆT NAM\n")
+    run3.bold = True
+    
+    # 3. Tiêu đề chính
+    doc.add_paragraph() 
+    p_title = doc.add_paragraph()
+    p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run_title1 = p_title.add_run("BIỂU TỔNG HỢP DIỄN BIẾN LƯƠNG\n")
+    run_title1.bold = True
+    run_title1.font.size = Pt(14)
+    
+    thang_nam = datetime.now().strftime('tháng %m năm %Y')
+    run_title2 = p_title.add_run(f"Ban Tuyên giáo và Dân vận Tỉnh uỷ {thang_nam}")
+    run_title2.italic = True
+    run_title2.font.size = Pt(12)
+    
+    doc.add_paragraph()
+
+    # 4. Kẻ Bảng dữ liệu chuẩn 11 cột
+    table = doc.add_table(rows=1, cols=11)
+    table.style = 'Table Grid'
+    
+    headers = ['TT', 'Họ và tên', 'Chức vụ', 'Mã ngạch lương hiện hưởng', 'Bậc lương', 'Hệ số lương hiện tại', 'Ngày hưởng', 'Nâng bậc lương tiếp theo', 'Hệ số', 'Hưởng từ ngày', 'Ghi chú']
+    # Chia tỷ lệ độ rộng cho vừa khít khổ A4 ngang
+    widths = [Cm(1.0), Cm(3.5), Cm(3.0), Cm(2.2), Cm(1.5), Cm(2.5), Cm(2.3), Cm(2.3), Cm(2.5), Cm(2.3), Cm(2.5)]
+    
+    hdr_cells = table.rows[0].cells
+    for i, h in enumerate(headers):
+        hdr_cells[i].text = h
+        hdr_cells[i].paragraphs[0].runs[0].bold = True
+        hdr_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        hdr_cells[i].width = widths[i]
+        
+    # 5. Đổ dữ liệu từ bảng lọc vào Word
+    stt = 1
+    for idx, row in df.iterrows():
+        row_cells = table.add_row().cells
+        row_cells[0].text = str(stt)
+        row_cells[1].text = str(row.get('ho_ten', ''))
+        row_cells[2].text = str(row.get('chuc_vu', ''))
+        row_cells[3].text = str(row.get('ma_ngach', ''))
+        row_cells[4].text = str(row.get('bac_luong', ''))
+        
+        # Xử lý hệ số hiện tại (Nối thêm % vượt khung nếu có)
+        hs_ht = str(row.get('he_so_hien_tai', '')).strip()
+        vk_ht = str(row.get('vuot_khung_hien_tai', '')).strip()
+        if vk_ht and str(vk_ht).lower() not in ['none', 'nan', '']:
+            hs_ht = f"{hs_ht} (Vượt khung {vk_ht})"
+        row_cells[5].text = hs_ht
+        
+        row_cells[6].text = str(row.get('ngay_gan_nhat', ''))
+        row_cells[7].text = str(row.get('bac_luong_moi', ''))
+        
+        # Xử lý hệ số mới (Nối thêm % vượt khung tương lai)
+        hs_moi = str(row.get('he_so_moi', '')).strip()
+        vk_moi = str(row.get('vuot_khung_moi', '')).strip()
+        if vk_moi and str(vk_moi).lower() not in ['none', 'nan', '']:
+            hs_moi = f"{hs_moi} (Vượt khung {vk_moi})"
+        row_cells[8].text = hs_moi
+        
+        row_cells[9].text = str(row.get('ngay_du_kien', ''))
+        row_cells[10].text = "Nâng lương thường xuyên" # Default ghi chú
+
+        # Căn chỉnh lề chữ trong ô
+        for i in range(11):
+            row_cells[i].width = widths[i]
+            row_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            # Căn trái cho cột Tên, Chức vụ và Ghi chú để dễ đọc
+            if i in [1, 2, 10]:
+                row_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+        stt += 1
+
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
+    
 def main():
     try:
         res = supabase.table("theo_doi_luong").select("*").execute()
@@ -295,6 +411,21 @@ def main():
                                     max_length = len(str(cell.value))
                             except:
                                 pass
+
+                with col_tai_word:
+                # Dữ liệu truyền vào chính là cái bảng sếp vừa lọc ở trên
+                out_df_word = edited_df.data if hasattr(edited_df, 'data') else edited_df
+                
+                # Chạy máy in Word
+                word_data = tao_file_word_dien_bien(out_df_word)
+                
+                st.download_button(
+                    label="📝 Xuất Word Diễn biến lương",
+                    data=word_data,
+                    file_name=f"Dien_Bien_Luong_Thang_{datetime.now().strftime('%m_%Y')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    type="secondary" # Để nút màu xám nhạt cho đỡ rối với nút Excel
+                )
                             # Kẻ viền cho mọi ô dữ liệu
                             if cell.row > 1:
                                 cell.border = thin_border
