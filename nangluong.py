@@ -8,7 +8,7 @@ import io
 import plotly.express as px
 import plotly.graph_objects as go
 
-# THƯ VIỆN CHO WORD & EXCEL (GIA CỐ)
+# --- KHAI BÁO THƯ VIỆN WORD & EXCEL (BẢN GIA CỐ ĐẶC BIỆT) ---
 try:
     from docx import Document
     from docx.shared import Cm, Pt
@@ -19,7 +19,11 @@ except:
 
 try:
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
+    # Thử lấy hàm get_column_letter từ 2 vị trí khác nhau để tránh lỗi phiên bản
+    try:
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        from openpyxl.utils.cell import get_column_letter
 except:
     pass
 
@@ -44,10 +48,10 @@ try:
     key = st.secrets["SUPABASE_KEY"]
     supabase = create_client(url, key)
 except Exception as e:
-    st.error("Sếp Tuấn ơi, kiểm tra lại Secrets trên Streamlit nhé!")
+    st.error("Sếp Tuấn ơi, kiểm tra lại file Secrets trên Streamlit Cloud nhé!")
     st.stop()
 
-# 3. CÁC HÀM XỬ LÝ DỮ LIỆU
+# 3. CÁC HÀM XỬ LÝ (GIỮ NGUYÊN LOGIC CHUẨN)
 def format_ma_ngach(val):
     if pd.isna(val) or val == "" or str(val).lower() == "nan": return ""
     val_str = str(val).strip()
@@ -100,7 +104,6 @@ def tinh_toan_nang_luong(df):
         else: res.at[idx, 'trang_thai'] = "Chưa đến hạn"
     return res.fillna("")
 
-# 4. HÀM TẠO WORD (BIỂU MẪU DIỄN BIẾN)
 def tao_file_word_dien_bien(df):
     from docx import Document
     from docx.shared import Cm, Pt
@@ -181,18 +184,25 @@ def main():
                     if recs: supabase.table("theo_doi_luong").insert(recs).execute()
                     st.success("Đã lưu!"); st.rerun()
             with col_e:
-                from openpyxl.styles import PatternFill, Font
-                from openpyxl.utils import get_column_letter
-                buf_e = io.BytesIO()
-                with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
-                    edited_df.to_excel(wr, index=False, sheet_name='Luong')
-                    ws = wr.sheets['Luong']
-                    for col_num in range(1, len(edited_df.columns) + 1):
-                        cell = ws.cell(row=1, column=col_num)
-                        cell.fill = PatternFill(start_color="004B87", end_color="004B87", fill_type="solid")
-                        cell.font = Font(bold=True, color="FFFFFF")
-                        ws.column_dimensions[get_column_letter(col_num)].width = 20
-                st.download_button("📥 Xuất Excel", buf_e.getvalue(), "Bao_Cao.xlsx", use_container_width=True)
+                try:
+                    from openpyxl.styles import PatternFill, Font
+                    # Cố gắng lấy hàm này một lần nữa ngay trong hàm xuất
+                    try: from openpyxl.utils import get_column_letter
+                    except: from openpyxl.utils.cell import get_column_letter
+                    
+                    buf_e = io.BytesIO()
+                    with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
+                        edited_df.to_excel(wr, index=False, sheet_name='Luong')
+                        ws = wr.sheets['Luong']
+                        for col_num in range(1, len(edited_df.columns) + 1):
+                            cell = ws.cell(row=1, column=col_num)
+                            cell.fill = PatternFill(start_color="004B87", end_color="004B87", fill_type="solid")
+                            cell.font = Font(bold=True, color="FFFFFF")
+                            ws.column_dimensions[get_column_letter(col_num)].width = 20
+                    st.download_button("📥 Xuất Excel", buf_e.getvalue(), "Bao_Cao.xlsx", use_container_width=True)
+                except Exception as ex:
+                    st.warning(f"Lỗi vẽ Excel: {ex}")
+
             with col_w:
                 st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df), "Dien_Bien.docx", use_container_width=True)
         with tab2:
