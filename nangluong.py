@@ -58,7 +58,7 @@ with st.sidebar:
         with st.expander("👉 Đăng nhập Quản trị"):
             admin_pwd = st.text_input("Mật khẩu Admin:", type="password")
             if st.button("Xác nhận Admin", use_container_width=True):
-                if admin_pwd == "admin123": # Mật khẩu của sếp
+                if admin_pwd == "Admin@2026": # Mật khẩu của sếp
                     st.session_state.role = "admin"
                     st.success("Đã chuyển sang quyền Admin!")
                     st.rerun()
