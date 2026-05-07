@@ -162,72 +162,89 @@ def main():
         # ==========================================
         # TAB 1: BẢNG DỮ LIỆU & BỘ LỌC (Đã mang trả lại sếp)
         # ==========================================
+        # ==========================================
+        # TAB 1: BẢNG DỮ LIỆU & BỘ LỌC (ĐÃ NÂNG CẤP)
+        # ==========================================
         with tab1:
-            # 🌟 BỘ LỌC ĐÃ TRỞ LẠI 🌟
-            c1, c2 = st.columns([2, 1])
+            # 🌟 BỘ LỌC ĐA CHIỀU (QUÁ KHỨ - HIỆN TẠI - TƯƠNG LAI) 🌟
+            c1, c2, c3, c4 = st.columns([1.5, 1.2, 1.2, 1])
             with c1:
-                search = st.text_input("🔍 Tra cứu tên cán bộ / chức vụ:", placeholder="Nhập tên hoặc chức vụ để tìm nhanh...")
+                search = st.text_input("🔍 Tra cứu tên / chức vụ:", placeholder="Gõ tên tìm nhanh...")
             with c2:
-                loc_thoi_gian = st.selectbox("⏳ Lọc theo thời gian đến hạn:", 
+                loc_thoi_gian = st.selectbox("⏳ Trạng thái đến hạn:", 
                                             ["Tất cả", "Trong tháng này", "Trong Quý này", "Trong 6 tháng tới", "Trong năm nay", "Đã quá hạn"])
+            with c3:
+                loai_ngay_loc = st.selectbox("📅 Báo cáo theo ngày nào?", 
+                                            ["Ngày dự kiến (Tương lai)", "Ngày gần nhất (Đã nâng)"])
+            with c4:
+                # Tạo danh sách năm từ 2020 đến 2035 cho trọn vẹn các nhiệm kỳ
+                danh_sach_nam = ["Tất cả"] + [str(year) for year in range(2020, 2036)]
+                loc_nam = st.selectbox("🎯 Chọn Năm cụ thể:", danh_sach_nam, index=0)
 
-            # Thực hiện lọc
+            # Xử lý Lọc Dữ Liệu
             df_display = df_calculated.copy()
             
+            # 1. Lọc theo chữ (Tên, chức vụ)
             if search:
                 mask = df_display.astype(str).apply(lambda x: x.str.contains(search, case=False, na=False)).any(axis=1)
                 df_display = df_display[mask]
                 
+            # 2. Lọc theo Trạng thái (Chỉ áp dụng cho tương lai)
             if loc_thoi_gian != "Tất cả":
                 today = datetime.now()
-                df_display['ngay_dk_dt'] = pd.to_datetime(df_display['ngay_du_kien'], format='%d/%m/%Y', errors='coerce')
-                df_display['so_ngay'] = (df_display['ngay_dk_dt'] - today).dt.days
+                df_display['ngay_dk_dt_temp'] = pd.to_datetime(df_display['ngay_du_kien'], format='%d/%m/%Y', errors='coerce')
+                df_display['so_ngay'] = (df_display['ngay_dk_dt_temp'] - today).dt.days
                 
-                # Tính toán Quý hiện tại chuẩn theo lịch
                 quy_hien_tai = (today.month - 1) // 3 + 1
                 
                 if loc_thoi_gian == "Trong tháng này":
-                    # Ép chuẩn lịch: Cùng tháng, cùng năm với hiện tại
-                    df_display = df_display[(df_display['ngay_dk_dt'].dt.month == today.month) & (df_display['ngay_dk_dt'].dt.year == today.year)]
+                    df_display = df_display[(df_display['ngay_dk_dt_temp'].dt.month == today.month) & (df_display['ngay_dk_dt_temp'].dt.year == today.year)]
                 elif loc_thoi_gian == "Trong Quý này":
-                    # Ép chuẩn lịch: Cùng quý, cùng năm với hiện tại
-                    df_display = df_display[(df_display['ngay_dk_dt'].dt.quarter == quy_hien_tai) & (df_display['ngay_dk_dt'].dt.year == today.year)]
+                    df_display = df_display[(df_display['ngay_dk_dt_temp'].dt.quarter == quy_hien_tai) & (df_display['ngay_dk_dt_temp'].dt.year == today.year)]
                 elif loc_thoi_gian == "Trong 6 tháng tới":
-                    # Tính cuốn chiếu tiến lên 180 ngày
                     df_display = df_display[(df_display['so_ngay'] >= 0) & (df_display['so_ngay'] <= 180)]
                 elif loc_thoi_gian == "Trong năm nay":
-                    # Ép chuẩn lịch: Cùng năm
-                    df_display = df_display[df_display['ngay_dk_dt'].dt.year == today.year]
+                    df_display = df_display[df_display['ngay_dk_dt_temp'].dt.year == today.year]
                 elif loc_thoi_gian == "Đã quá hạn":
                     df_display = df_display[df_display['so_ngay'] < 0]
                     
-                df_display = df_display.drop(columns=['ngay_dk_dt', 'so_ngay'], errors='ignore')
+                df_display = df_display.drop(columns=['ngay_dk_dt_temp', 'so_ngay'], errors='ignore')
 
-            # Hiển thị Data Editor
-            def color_status(val):
-                val_str = str(val)
-                if "Sắp đến hạn" in val_str or "Đã quá hạn" in val_str: return 'color: red; font-weight: bold'
-                return 'color: green'
+            # 3. Lọc theo NĂM CỤ THỂ (Dành cho báo cáo nhiệm kỳ)
+            if loc_nam != "Tất cả":
+                # Xác định xem sếp đang muốn tra cột nào
+                cot_ngay = 'ngay_du_kien' if loai_ngay_loc == "Ngày dự kiến (Tương lai)" else 'ngay_gan_nhat'
+                
+                # Biến cột ngày thành định dạng chuẩn để rút ra cái Năm
+                df_display['temp_date_for_year'] = pd.to_datetime(df_display[cot_ngay], format='%d/%m/%Y', errors='coerce')
+                
+                # Giữ lại những người có Năm khớp với Năm sếp chọn
+                df_display = df_display[df_display['temp_date_for_year'].dt.year == int(loc_nam)]
+                
+                # Dọn rác
+                df_display = df_display.drop(columns=['temp_date_for_year'], errors='ignore')
 
-            # --- XỬ LÝ LỖI MÃ NGẠCH BỊ BIẾN THÀNH SỐ ---
+            # --- KẾT THÚC ĐOẠN LỌC - HIỂN THỊ RA BẢNG DƯỚI ĐÂY ---
             def format_ma_ngach(val):
                 if pd.isna(val) or val == "" or str(val).lower() == "nan":
                     return ""
                 val_str = str(val).strip()
-                # Nếu hệ thống đang lỡ lưu kiểu 1001.0 thì tự động gọt đuôi .0 đi cho đẹp
                 if val_str.endswith(".0"):
                     val_str = val_str[:-2]
                 return val_str
 
             df_display['ma_ngach'] = df_display['ma_ngach'].apply(format_ma_ngach)
 
-            # Hiển thị Data Editor
+            def color_status(val):
+                val_str = str(val)
+                if "Sắp đến hạn" in val_str or "Đã quá hạn" in val_str: return 'color: red; font-weight: bold'
+                return 'color: green'
+
             st.caption("✍️ Sửa trực tiếp trên bảng. Sửa xong bấm LƯU để máy tự cộng cột Tương lai!")
             edited_df = st.data_editor(
                 df_display.style.map(color_status, subset=['trang_thai']),
                 num_rows="dynamic",
                 column_config={
-                    # 🌟 ÉP CHUẨN CỘT MÃ NGẠCH THÀNH VĂN BẢN (TEXT) 🌟
                     "ma_ngach": st.column_config.TextColumn("Mã ngạch")
                 },
                 disabled=["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"],
