@@ -1,3 +1,4 @@
 pandas
 supabase
 plotly
+openpyxl
