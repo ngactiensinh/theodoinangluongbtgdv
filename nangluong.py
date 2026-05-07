@@ -257,43 +257,61 @@ def main():
             # --- NÚT LƯU & TẢI ---
             col_luu, col_tai = st.columns(2)
             with col_luu:
-                if st.button("💾 Lưu thay đổi & Tính toán lại"):
-                    try:
-                        current_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
-                        luu_df = current_df[current_df['ho_ten'].str.strip().astype(bool)].copy()
-                        
-                        cols_to_drop = ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai", "id"]
-                        luu_df = luu_df.drop(columns=[c for c in cols_to_drop if c in luu_df.columns], errors='ignore')
-                        
-                        # Rà soát tử hình NaN siêu chặt chẽ
-                        records = []
-                        for r in luu_df.to_dict(orient="records"):
-                            clean_r = {}
-                            for k, v in r.items():
-                                if pd.isna(v) or v == "" or str(v).lower() == 'nan':
-                                    clean_r[k] = None
-                                else:
-                                    clean_r[k] = v
-                            records.append(clean_r)
-                            
-                        json.dumps(records) # Chạy máy quét JSON
-                        
-                        supabase.table("theo_doi_luong").delete().neq("ho_ten", "Xóa_Tất_Cả").execute()
-                        if records:
-                            supabase.table("theo_doi_luong").insert(records).execute()
-                            
-                        st.success("🎉 Lưu thành công tuyệt đối!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Lỗi nhập liệu: {e}")
+                # ... (Giữ nguyên đoạn code của nút Lưu thay đổi ở đây) ...
+                pass # Bạn không cần copy dòng pass này, chỉ cần giữ nguyên code nút Lưu của bạn
 
             with col_tai:
                 out_df = edited_df.data if hasattr(edited_df, 'data') else edited_df
+                
+                # --- XUẤT EXCEL BẢN ĐẸP TỰ ĐỘNG ---
+                import io
+                from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+                from openpyxl.utils import get_column_letter
+                
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    # Viết dữ liệu ra sheet
+                    out_df.to_excel(writer, index=False, sheet_name='Theo_Doi_Luong')
+                    worksheet = writer.sheets['Theo_Doi_Luong']
+                    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                                         top=Side(style='thin'), bottom=Side(style='thin'))
+                    
+                    # 1. Trang điểm cho dòng Tiêu đề (Header)
+                    header_fill = PatternFill(start_color="004B87", end_color="004B87", fill_type="solid")
+                    for col_num, col_name in enumerate(out_df.columns, 1):
+                        cell = worksheet.cell(row=1, column=col_num)
+                        cell.fill = header_fill
+                        cell.font = Font(bold=True, color="FFFFFF")
+                        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                        cell.border = thin_border
+                        
+                    # 2. Trang điểm cho Data & Tự động căn chỉnh độ rộng cột
+                    for i, col in enumerate(worksheet.columns, 1):
+                        max_length = 0
+                        column_letter = get_column_letter(i)
+                        for cell in col:
+                            try:
+                                if len(str(cell.value)) > max_length:
+                                    max_length = len(str(cell.value))
+                            except:
+                                pass
+                            # Kẻ viền cho mọi ô dữ liệu
+                            if cell.row > 1:
+                                cell.border = thin_border
+                                cell.alignment = Alignment(vertical='center')
+                                
+                        # Giới hạn độ rộng cột không quá to, không quá nhỏ
+                        worksheet.column_dimensions[column_letter].width = min(max(max_length + 2, 10), 35)
+                        
+                    worksheet.row_dimensions[1].height = 25 # Cột tiêu đề cao lên tí cho đẹp
+                
+                # Nút tải xuống giao diện Streamlit
                 st.download_button(
-                    "📥 Xuất file báo cáo (CSV)",
-                    out_df.to_csv(index=False).encode('utf-8-sig'),
-                    f"bao_cao_luong_{datetime.now().strftime('%d%m%Y')}.csv",
-                    "text/csv"
+                    label="📥 Xuất báo cáo EXCEL (Bản đẹp)",
+                    data=buffer.getvalue(),
+                    file_name=f"Danh_Sach_Nang_Luong_{datetime.now().strftime('%d%m%Y')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary" # Nổi bật nút tải lên
                 )
 
         # ==========================================
