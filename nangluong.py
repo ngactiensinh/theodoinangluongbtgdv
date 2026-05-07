@@ -33,16 +33,21 @@ st.markdown("""
     <style>
     .main-header {
         background: linear-gradient(135deg, #004B87 0%, #17a2b8 100%);
-        padding: 30px; border-radius: 15px; color: white; text-align: center; margin-bottom: 25px;
+        padding: 20px; border-radius: 12px; color: white; text-align: center; margin-bottom: 15px;
     }
     .stDataFrame { border: 1px solid #e6e9ef; border-radius: 10px; }
-    .metric-container {background-color: #ffffff; padding: 20px; border-radius: 15px; border: 2px solid #e6e9ef; text-align: center; height: 160px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
-    .metric-label {font-size: 16px; color: #004B87; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;}
-    .metric-value {font-size: 50px; color: #C8102E; font-weight: 900; margin: 0;}
+    
+    /* Thu nhỏ 2 ô số liệu để tiết kiệm diện tích */
+    .metric-container {background-color: #ffffff; padding: 15px; border-radius: 10px; border: 2px solid #e6e9ef; text-align: center; height: 100px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
+    .metric-label {font-size: 14px; color: #004B87; font-weight: bold; text-transform: uppercase; margin-bottom: 2px;}
+    .metric-value {font-size: 38px; color: #C8102E; font-weight: 900; margin: 0;}
+    
+    /* Thu gọn khoảng cách các thành phần trong tab */
+    .block-container {padding-top: 1rem; padding-bottom: 1rem;}
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header"><h1>📈 HỆ THỐNG QUẢN LÝ LƯƠNG 4.0</h1><p>Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header"><h2 style="margin:0;">📈 HỆ THỐNG QUẢN LÝ LƯƠNG 4.0</h2><p style="margin:0; font-size:14px;">Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang</p></div>', unsafe_allow_html=True)
 
 # 2. KẾT NỐI SUPABASE
 try:
@@ -216,48 +221,71 @@ def main():
                 st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df, loc_thang, loc_nam), "Dien_Bien.docx", use_container_width=True)
 
         with tab2:
-            st.markdown("<h3 style='color:#004B87; text-align:center; margin-top: 10px; margin-bottom: 20px;'>📊 THỐNG KÊ TỔNG QUAN CHẤT LƯỢNG ĐỘI NGŨ</h3>", unsafe_allow_html=True)
-            
             # --- TÍNH TOÁN SỐ LIỆU TỔNG ---
             tong_nv = len(df_calculated[df_calculated['ho_ten'].str.strip() != ""])
             sap_den_han = len(df_calculated[df_calculated['trang_thai'].str.contains("Sắp|quá", na=False, case=False)])
             
-            # --- HÀNG 1: 2 Ô SỐ LIỆU CỰC TO ---
-            r1c1, r1c2 = st.columns(2)
-            with r1c1:
-                st.markdown(f"<div class='metric-container'><div class='metric-label'>TỔNG SỐ CÁN BỘ</div><div class='metric-value' style='color:#004B87;'>{tong_nv}</div></div>", unsafe_allow_html=True)
+            # --- HÀNG 1: 2 Ô SỐ LIỆU ĐƯỢC THU NHỎ ---
+            r1c1, r1c2, r1c3, r1c4 = st.columns(4) # Dùng 4 cột để ép 2 ô này nhỏ lại nằm ở giữa
             with r1c2:
-                st.markdown(f"<div class='metric-container'><div class='metric-label'>SẮP ĐẾN HẠN / QUÁ HẠN LƯƠNG</div><div class='metric-value'>{sap_den_han}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-container'><div class='metric-label'>TỔNG SỐ CÁN BỘ</div><div class='metric-value' style='color:#004B87;'>{tong_nv}</div></div>", unsafe_allow_html=True)
+            with r1c3:
+                st.markdown(f"<div class='metric-container'><div class='metric-label'>SẮP ĐẾN HẠN / QUÁ HẠN</div><div class='metric-value'>{sap_den_han}</div></div>", unsafe_allow_html=True)
             
-            # --- HÀNG 2: 2 BIỂU ĐỒ (TRÒN & CỘT) ---
-            cc1, cc2 = st.columns([1, 1.2]) 
+            # --- CHIỀU CAO TIÊU CHUẨN CHO 4 BIỂU ĐỒ (Để fit màn hình) ---
+            CHART_HEIGHT = 280
+            MARGINS = dict(t=30, b=10, l=10, r=10)
+            TITLE_FONT = dict(size=14, color='#004B87', family='Arial')
             
-            # Biểu đồ Tròn
-            df_p = df_calculated['bac_luong'].value_counts().reset_index()
-            df_p = df_p[df_p['bac_luong'].str.strip() != ""]
+            # --- HÀNG 2: MÃ NGẠCH & NGẠCH LƯƠNG ---
+            r2c1, r2c2 = st.columns(2)
             
-            fig_p = px.pie(df_p, names='bac_luong', values='count', hole=0.55, color_discrete_sequence=px.colors.sequential.Blues_r)
-            fig_p.update_traces(textposition='inside', textinfo='percent+label', insidetextorientation='radial', marker=dict(line=dict(color='#FFFFFF', width=2)))
-            fig_p.update_layout(
-                title=dict(text="CƠ CẤU BẬC LƯƠNG", x=0.5, font=dict(size=16, color='#004B87', family='Arial')),
-                showlegend=False, height=350, margin=dict(t=40, b=20, l=20, r=20),
-                annotations=[dict(text=f"<b>{tong_nv}</b><br>Cán bộ", x=0.5, y=0.5, font_size=20, showarrow=False, font=dict(color='#C8102E'))]
-            )
-            with cc1: st.plotly_chart(fig_p, use_container_width=True)
+            # 1. Biểu đồ Mã ngạch
+            df_ma = df_calculated['ma_ngach'].value_counts().reset_index()
+            df_ma = df_ma[df_ma['ma_ngach'].str.strip() != ""]
+            fig_ma = px.bar(df_ma, x='ma_ngach', y='count', text='count', color='count', color_continuous_scale='Blues')
+            fig_ma.update_traces(textposition='outside', marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
+            fig_ma.update_layout(title=dict(text="1. MÃ NGẠCH LƯƠNG", x=0.5, font=TITLE_FONT),
+                                xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',
+                                height=CHART_HEIGHT, margin=MARGINS)
+            fig_ma.update_yaxes(showgrid=True, gridcolor='#e6e6e6', showticklabels=False)
+            with r2c1: st.plotly_chart(fig_ma, use_container_width=True)
+
+            # 2. Biểu đồ Ngạch lương (Bar chart nằm ngang để chữ dài không bị đè)
+            df_ngach = df_calculated['ngach_luong'].value_counts().reset_index()
+            df_ngach = df_ngach[df_ngach['ngach_luong'].str.strip() != ""]
+            fig_ngach = px.bar(df_ngach, y='ngach_luong', x='count', text='count', orientation='h', color='count', color_continuous_scale='Teal')
+            fig_ngach.update_traces(textposition='outside', marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
+            fig_ngach.update_layout(title=dict(text="2. NGẠCH LƯƠNG", x=0.5, font=TITLE_FONT),
+                                xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',
+                                height=CHART_HEIGHT, margin=MARGINS)
+            fig_ngach.update_xaxes(showgrid=True, gridcolor='#e6e6e6', showticklabels=False)
+            with r2c2: st.plotly_chart(fig_ngach, use_container_width=True)
+
+            # --- HÀNG 3: BẬC LƯƠNG & HỆ SỐ LƯƠNG ---
+            r3c1, r3c2 = st.columns(2)
+            
+            # 3. Biểu đồ Bậc lương (Donut)
+            df_bac = df_calculated['bac_luong'].value_counts().reset_index()
+            df_bac = df_bac[df_bac['bac_luong'].str.strip() != ""]
+            fig_bac = px.pie(df_bac, names='bac_luong', values='count', hole=0.5, color_discrete_sequence=px.colors.sequential.PuBu)
+            fig_bac.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=2)))
+            fig_bac.update_layout(title=dict(text="3. BẬC LƯƠNG HIỆN HƯỞNG", x=0.5, font=TITLE_FONT),
+                                showlegend=False, height=CHART_HEIGHT, margin=MARGINS)
+            with r3c1: st.plotly_chart(fig_bac, use_container_width=True)
                 
-            # Biểu đồ Cột
-            df_b = df_calculated['ma_ngach'].value_counts().reset_index()
-            df_b = df_b[df_b['ma_ngach'].str.strip() != ""]
-            
-            fig_b = px.bar(df_b, x='ma_ngach', y='count', text='count', color='count', color_continuous_scale='Blues')
-            fig_b.update_traces(textposition='outside', textfont_size=14, marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
-            fig_b.update_layout(
-                title=dict(text="PHÂN BỔ THEO MÃ NGẠCH", x=0.5, font=dict(size=16, color='#004B87', family='Arial')),
-                xaxis_title="", yaxis_title="", xaxis_tickangle=-30, coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',
-                height=350, margin=dict(t=40, b=20, l=20, r=20)
-            )
-            fig_b.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#e6e6e6', showticklabels=False)
-            with cc2: st.plotly_chart(fig_b, use_container_width=True)
+            # 4. Biểu đồ Hệ số lương hiện tại
+            df_hs = df_calculated['he_so_hien_tai'].value_counts().reset_index()
+            df_hs = df_hs[df_hs['he_so_hien_tai'].astype(str).str.strip() != ""]
+            # Sắp xếp trục X theo hệ số từ thấp đến cao cho logic
+            df_hs = df_hs.sort_values(by='he_so_hien_tai') 
+            fig_hs = px.bar(df_hs, x='he_so_hien_tai', y='count', text='count', color='count', color_continuous_scale='Purples')
+            fig_hs.update_traces(textposition='outside', marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
+            fig_hs.update_layout(title=dict(text="4. HỆ SỐ LƯƠNG HIỆN TẠI", x=0.5, font=TITLE_FONT),
+                                xaxis_title="", yaxis_title="", coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)',
+                                height=CHART_HEIGHT, margin=MARGINS, xaxis_type='category')
+            fig_hs.update_yaxes(showgrid=True, gridcolor='#e6e6e6', showticklabels=False)
+            with r3c2: st.plotly_chart(fig_hs, use_container_width=True)
 
     except Exception as e:
         st.error(f"Lỗi hệ thống: {e}")
