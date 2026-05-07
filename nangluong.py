@@ -203,19 +203,59 @@ def main():
             with col_w:
                 st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df, loc_thang, loc_nam), "Dien_Bien.docx", use_container_width=True)
 
-        with tab2:
-            st.markdown("<h3 style='color:#004B87; text-align:center; margin-bottom: 20px;'>📊 THỐNG KÊ TỔNG QUAN CHẤT LƯỢNG ĐỘI NGŨ</h3>", unsafe_allow_html=True)
-            cc1, cc2 = st.columns(2)
+       with tab2:
+            st.markdown("<h3 style='color:#004B87; text-align:center; margin-top: 10px; margin-bottom: 20px;'>📊 THỐNG KÊ TỔNG QUAN CHẤT LƯỢNG ĐỘI NGŨ</h3>", unsafe_allow_html=True)
+            
+            # Chia tỷ lệ cột 4.5 : 5.5 cho cân đối màn hình
+            cc1, cc2 = st.columns([1, 1.2]) 
+            
+            # --- 1. BIỂU ĐỒ TRÒN (DONUT CHUẨN XỊN) ---
             df_p = df_calculated['bac_luong'].value_counts().reset_index()
             df_p = df_p[df_p['bac_luong'].str.strip() != ""]
-            fig_p = px.pie(df_p, names='bac_luong', values='count', title="CƠ CẤU BẬC LƯƠNG", hole=0.45)
-            fig_p.update_traces(textposition='inside', textinfo='percent+label'); fig_p.update_layout(showlegend=False)
-            with cc1: st.plotly_chart(fig_p, use_container_width=True)
+            tong_nv = df_p['count'].sum() # Tính tổng số người để nhét vào giữa bánh
+            
+            fig_p = px.pie(df_p, names='bac_luong', values='count', 
+                           hole=0.55, # Khoét lỗ to ra một chút
+                           color_discrete_sequence=px.colors.sequential.Blues_r) # Đổ màu Tone Xanh
+            
+            fig_p.update_traces(textposition='inside', textinfo='percent+label', 
+                                insidetextorientation='radial',
+                                marker=dict(line=dict(color='#FFFFFF', width=2)))
+            
+            fig_p.update_layout(
+                title=dict(text="CƠ CẤU BẬC LƯƠNG", x=0.5, font=dict(size=16, color='#004B87', family='Arial')),
+                showlegend=False, 
+                height=400, # 🌟 KHOÁ CHIỀU CAO ĐỂ VỪA MÀN 1920x1080 🌟
+                margin=dict(t=40, b=20, l=20, r=20), # Ép lề cho gọn
+                annotations=[dict(text=f"<b>{tong_nv}</b><br>Cán bộ", x=0.5, y=0.5, font_size=20, showarrow=False, font=dict(color='#C8102E'))]
+            )
+            with cc1: 
+                st.plotly_chart(fig_p, use_container_width=True)
+                
+            # --- 2. BIỂU ĐỒ CỘT (GỌN GÀNG, PHẲNG LÌ) ---
             df_b = df_calculated['ma_ngach'].value_counts().reset_index()
             df_b = df_b[df_b['ma_ngach'].str.strip() != ""]
-            fig_b = px.bar(df_b, x='ma_ngach', y='count', title="PHÂN BỔ THEO MÃ NGẠCH", text='count', color='count', color_continuous_scale='Blues')
-            fig_b.update_layout(xaxis_tickangle=-45, coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)')
-            with cc2: st.plotly_chart(fig_b, use_container_width=True)
+            
+            fig_b = px.bar(df_b, x='ma_ngach', y='count', text='count', 
+                           color='count', color_continuous_scale='Blues')
+            
+            fig_b.update_traces(textposition='outside', textfont_size=14,
+                                marker_line_color='rgb(8,48,107)', marker_line_width=1.5, opacity=0.9)
+            
+            fig_b.update_layout(
+                title=dict(text="PHÂN BỔ THEO MÃ NGẠCH", x=0.5, font=dict(size=16, color='#004B87', family='Arial')),
+                xaxis_title="", yaxis_title="", # Giấu tên trục cho đỡ rườm rà
+                xaxis_tickangle=-30, # Chữ hơi nghiêng nhẹ
+                coloraxis_showscale=False,
+                plot_bgcolor='rgba(0,0,0,0)',
+                height=400, # 🌟 ĐỒNG BỘ CHIỀU CAO VỚI BIỂU ĐỒ TRÒN 🌟
+                margin=dict(t=40, b=20, l=20, r=20)
+            )
+            # Ẩn các số liệu bên trục Y vì đã có số nổi trên đầu cột rồi
+            fig_b.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#e6e6e6', showticklabels=False)
+            
+            with cc2: 
+                st.plotly_chart(fig_b, use_container_width=True)
 
     except Exception as e: st.error(f"Lỗi: {e}")
 
