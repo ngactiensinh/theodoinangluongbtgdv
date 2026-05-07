@@ -8,7 +8,7 @@ import io
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --- KHAI BÁO THƯ VIỆN WORD & EXCEL (BẢN GIA CỐ ĐẶC BIỆT) ---
+# --- KHAI BÁO THƯ VIỆN WORD & EXCEL (GIA CỐ) ---
 try:
     from docx import Document
     from docx.shared import Cm, Pt
@@ -26,7 +26,7 @@ try:
 except:
     pass
 
-# 1. CẤU HÌNH TRANG
+# 1. CẤU HÌNH TRANG & CSS
 st.set_page_config(page_title="Quản lý Lương Tuyên Quang", page_icon="📊", layout="wide")
 
 st.markdown("""
@@ -50,7 +50,7 @@ except Exception as e:
     st.error("Sếp Tuấn ơi, kiểm tra lại file Secrets trên Streamlit Cloud nhé!")
     st.stop()
 
-# 3. CÁC HÀM XỬ LÝ (GIỮ NGUYÊN LOGIC CHUẨN)
+# 3. CÁC HÀM XỬ LÝ DỮ LIỆU
 def format_ma_ngach(val):
     if pd.isna(val) or val == "" or str(val).lower() == "nan": return ""
     val_str = str(val).strip()
@@ -103,7 +103,6 @@ def tinh_toan_nang_luong(df):
         else: res.at[idx, 'trang_thai'] = "Chưa đến hạn"
     return res.fillna("")
 
-# 4. HÀM TẠO WORD (ĐÃ SỬA LỖI TIÊU ĐỀ THÁNG/NĂM)
 def tao_file_word_dien_bien(df, thang_chon="Tất cả", nam_chon="Tất cả"):
     from docx import Document
     from docx.shared import Cm, Pt
@@ -120,16 +119,11 @@ def tao_file_word_dien_bien(df, thang_chon="Tất cả", nam_chon="Tất cả"):
     cl.add_run("TỈNH UỶ TUYÊN QUANG\n").bold = True; cl.add_run("BAN TUYÊN GIÁO VÀ DÂN VẬN\n*").bold = True
     cr = table_h.cell(0, 1).paragraphs[0]; cr.alignment = WD_ALIGN_PARAGRAPH.CENTER
     cr.add_run("ĐẢNG CỘNG SẢN VIỆT NAM\n").bold = True
-    
     p_t = doc.add_paragraph(); p_t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run_t = p_t.add_run("\nBIỂU TỔNG HỢP DIỄN BIẾN LƯƠNG\n"); run_t.bold = True; run_t.font.size = Pt(14)
-    
-    # Logic lấy tháng năm từ bộ lọc để in vào tiêu đề Word
     txt_thang = thang_chon if thang_chon != "Tất cả" else datetime.now().strftime('%m')
     txt_nam = nam_chon if nam_chon != "Tất cả" else datetime.now().strftime('%Y')
-    
     run_s = p_t.add_run(f"Ban Tuyên giáo và Dân vận Tỉnh uỷ tháng {txt_thang} năm {txt_nam}"); run_s.italic = True
-    
     table = doc.add_table(rows=1, cols=11); table.style = 'Table Grid'
     headers = ['TT', 'Họ và tên', 'Chức vụ', 'Mã ngạch', 'Bậc', 'Hệ số HT', 'Ngày hưởng', 'Nâng bậc', 'Hệ số mới', 'Hưởng từ', 'Ghi chú']
     for i, h in enumerate(headers):
@@ -206,60 +200,24 @@ def main():
                             ws.column_dimensions[get_column_letter(col_num)].width = 20
                     st.download_button("📥 Xuất Excel", buf_e.getvalue(), "Bao_Cao.xlsx", use_container_width=True)
                 except Exception as ex: st.warning(f"Lỗi vẽ Excel: {ex}")
-
             with col_w:
-                # TRUYỀN THÊM loc_thang VÀ loc_nam VÀO HÀM ĐỂ IN ĐÚNG TIÊU ĐỀ
                 st.download_button("📝 Xuất Word", tao_file_word_dien_bien(edited_df, loc_thang, loc_nam), "Dien_Bien.docx", use_container_width=True)
+
         with tab2:
             st.markdown("<h3 style='color:#004B87; text-align:center; margin-bottom: 20px;'>📊 THỐNG KÊ TỔNG QUAN CHẤT LƯỢNG ĐỘI NGŨ</h3>", unsafe_allow_html=True)
-            
-            c1, c2 = st.columns(2)
-            
-            # --- 1. BIỂU ĐỒ TRÒN (DONUT CHART) - CƠ CẤU BẬC LƯƠNG ---
-            df_pie = df_calculated['bac_luong'].value_counts().reset_index()
-            # Lọc bỏ dòng trống (nếu có) để biểu đồ không bị móp
-            df_pie = df_pie[df_pie['bac_luong'].str.strip() != ""]
-            
-            fig_pie = px.pie(df_pie, names='bac_luong', values='count', 
-                             title="CƠ CẤU BẬC LƯƠNG", 
-                             hole=0.45, # Biến thành bánh Donut
-                             color_discrete_sequence=px.colors.qualitative.Pastel)
-            
-            # Ép chữ vào trong, ẩn chú giải bên ngoài
-            fig_pie.update_traces(textposition='inside', textinfo='percent+label', 
-                                  marker=dict(line=dict(color='#FFFFFF', width=2)))
-            fig_pie.update_layout(showlegend=False, title_x=0.5, font=dict(size=14)) 
-            
-            with c1:
-                st.plotly_chart(fig_pie, use_container_width=True)
-                
-            # --- 2. BIỂU ĐỒ CỘT - PHÂN BỔ MÃ NGẠCH ---
-            df_bar = df_calculated['ma_ngach'].value_counts().reset_index()
-            df_bar = df_bar[df_bar['ma_ngach'].str.strip() != ""]
-            
-            fig_bar = px.bar(df_bar, x='ma_ngach', y='count', 
-                             title="PHÂN BỔ THEO MÃ NGẠCH", 
-                             text='count', # Hiện số nổi trên đầu cột
-                             color='count', # Đổ màu gradient theo số lượng
-                             color_continuous_scale='Blues') # Tone màu xanh Tuyên giáo
-            
-            # Chỉnh viền cột, vị trí số
-            fig_bar.update_traces(textposition='outside', textfont_size=14,
-                                  marker_line_width=1.5, opacity=0.9)
-            
-            # Xoay chữ trục X, làm gọn giao diện
-            fig_bar.update_layout(
-                title_x=0.5, 
-                xaxis_title="", 
-                yaxis_title="Số lượng cán bộ",
-                xaxis_tickangle=-45, # Xoay nghiêng chữ 45 độ để không bị đè
-                coloraxis_showscale=False, # Ẩn thanh thước màu bên cạnh
-                plot_bgcolor='rgba(0,0,0,0)' # Nền trong suốt
-            )
-            # Kẻ sọc ngang cho dễ nhìn
-            fig_bar.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
-            
-            with c2:
-                st.plotly_chart(fig_bar, use_container_width=True)
+            cc1, cc2 = st.columns(2)
+            df_p = df_calculated['bac_luong'].value_counts().reset_index()
+            df_p = df_p[df_p['bac_luong'].str.strip() != ""]
+            fig_p = px.pie(df_p, names='bac_luong', values='count', title="CƠ CẤU BẬC LƯƠNG", hole=0.45)
+            fig_p.update_traces(textposition='inside', textinfo='percent+label'); fig_p.update_layout(showlegend=False)
+            with cc1: st.plotly_chart(fig_p, use_container_width=True)
+            df_b = df_calculated['ma_ngach'].value_counts().reset_index()
+            df_b = df_b[df_b['ma_ngach'].str.strip() != ""]
+            fig_b = px.bar(df_b, x='ma_ngach', y='count', title="PHÂN BỔ THEO MÃ NGẠCH", text='count', color='count', color_continuous_scale='Blues')
+            fig_b.update_layout(xaxis_tickangle=-45, coloraxis_showscale=False, plot_bgcolor='rgba(0,0,0,0)')
+            with cc2: st.plotly_chart(fig_b, use_container_width=True)
 
-if __name__ == "__main__": main()
+    except Exception as e: st.error(f"Lỗi: {e}")
+
+if __name__ == "__main__":
+    main()
