@@ -47,7 +47,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header"><h2 style="margin:0;">📈 HỆ THỐNG QUẢN LÝ LƯƠNG 4.0</h2><p style="margin:0; font-size:14px;">Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header"><h2 style="margin:0;">📈 HỆ THỐNG QUẢN LÝ LƯƠNG</h2><p style="margin:0; font-size:14px;">Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang</p></div>', unsafe_allow_html=True)
 
 # 2. KẾT NỐI SUPABASE
 try:
@@ -230,7 +230,7 @@ def main():
             with r1c2:
                 st.markdown(f"<div class='metric-container'><div class='metric-label'>TỔNG SỐ CÁN BỘ</div><div class='metric-value' style='color:#004B87;'>{tong_nv}</div></div>", unsafe_allow_html=True)
             with r1c3:
-                st.markdown(f"<div class='metric-container'><div class='metric-label'>SẮP ĐẾN HẠN / QUÁ HẠN</div><div class='metric-value'>{sap_den_han}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-container'><div class='metric-label'>SẮP ĐẾN HẠN</div><div class='metric-value'>{sap_den_han}</div></div>", unsafe_allow_html=True)
             
             # --- CHIỀU CAO TIÊU CHUẨN CHO 4 BIỂU ĐỒ (Để fit màn hình) ---
             CHART_HEIGHT = 280
