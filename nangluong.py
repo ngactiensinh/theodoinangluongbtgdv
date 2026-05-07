@@ -85,6 +85,12 @@ except Exception as e:
     st.error("Lỗi kết nối cơ sở dữ liệu. Sếp kiểm tra lại Secrets nhé!")
     st.stop()
 
+# --- GẮN CHIP THEO DÕI TRUY CẬP ---
+try:
+    supabase.table("thong_ke_truy_cap").insert({"ten_app": "Theo dõi Nâng lương"}).execute()
+except:
+    pass
+
 # 5. CÁC HÀM XỬ LÝ DỮ LIỆU
 def format_ma_ngach(val):
     if pd.isna(val) or val == "" or str(val).lower() == "nan": return ""
