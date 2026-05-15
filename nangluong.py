@@ -316,7 +316,7 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
 
     if st.session_state.role == "user":
-        st.markdown('<div class="user-badge">👁 XIN CHÀO ĐỒNG CHÍ</div>', unsafe_allow_html=True)
+        st.markdown('<div class="user-badge">👁 Chế độ: XEM (chỉ đọc)</div>', unsafe_allow_html=True)
         with st.expander("🔐 Đăng nhập Quản trị"):
             admin_pwd = st.text_input("Mật khẩu:", type="password", label_visibility="collapsed", placeholder="Nhập mật khẩu admin...")
             if st.button("Đăng nhập", use_container_width=True):
@@ -335,8 +335,8 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:11px; opacity:.5; text-align:center; line-height:1.8;">
-        Phiên bản 1.0<br>
-        Phát triển bởi Ngạc Văn Tuấn 🚀<br>
+        Phiên bản 4.3<br>
+        Phát triển bởi Tuấn 🚀<br>
         © 2025 Ban TG&DV Tuyên Quang
     </div>
     """, unsafe_allow_html=True)
@@ -546,13 +546,18 @@ def main():
         res          = supabase.table("theo_doi_luong").select("*").execute()
         df_base      = pd.DataFrame(res.data) if res.data else pd.DataFrame(
             columns=["ho_ten", "ngay_gan_nhat", "ma_ngach"])
+        
+        # Tiến hành tính toán trạng thái
         df_calculated = tinh_toan_nang_luong(df_base)
+        
+        # BỎ ĐI CÁC DÒNG RỖNG TRƯỚC KHI ĐẾM ĐỂ TRÁNH LỖI LỌC DỮ LIỆU
+        df_calculated = df_calculated[df_calculated['ho_ten'].astype(str).str.strip() != ""]
 
         # ── KPI CARDS ──────────────────────────────
-        tong_nv     = len(df_calculated[df_calculated['ho_ten'].astype(str).str.strip() != ""])
-        qua_han     = len(df_calculated[df_calculated['trang_thai'].str.contains("quá hạn", na=False, case=False)])
-        thang_nay   = len(df_calculated[df_calculated['trang_thai'].str.contains("Tháng này", na=False)])
-        quy_nay     = len(df_calculated[df_calculated['trang_thai'].str.contains("Quý này", na=False)])
+        tong_nv     = len(df_calculated)
+        qua_han     = len(df_calculated[df_calculated['trang_thai'] == "⛔ Đã quá hạn"])
+        thang_nay   = len(df_calculated[df_calculated['trang_thai'] == "🔴 Sắp đến hạn (Tháng này)"])
+        quy_nay     = len(df_calculated[df_calculated['trang_thai'] == "🟡 Sắp đến hạn (Quý này)"])
 
         st.markdown(f"""
         <div class="kpi-grid">
@@ -591,8 +596,11 @@ def main():
                 st.markdown('<div class="section-title">🔍 Bộ lọc tìm kiếm</div>', unsafe_allow_html=True)
                 c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.8, 1, 1])
                 search   = c1.text_input("Tên / chức vụ", placeholder="Gõ để tìm kiếm...", label_visibility="visible")
+                
+                # SỬA LẠI TUỲ CHỌN CHO KHỚP HOÀN TOÀN VỚI CỘT TRẠNG THÁI
                 loc_tg   = c2.selectbox("Trạng thái",
-                    ["Tất cả", "Trong tháng này", "Trong Quý này", "Trong 6 tháng tới", "Trong năm nay", "Đã quá hạn"])
+                    ["Tất cả", "🔴 Sắp đến hạn (Tháng này)", "🟡 Sắp đến hạn (Quý này)", "🟢 Chưa đến hạn", "⛔ Đã quá hạn", "Chưa có ngày"])
+                
                 loai_ngay = c3.selectbox("Loại ngày lọc",
                     ["Ngày dự kiến (Tương lai)", "Ngày gần nhất (Đã nâng)"])
                 loc_nam  = c4.selectbox("Năm", ["Tất cả"] + [str(y) for y in range(2020, 2036)])
@@ -600,34 +608,24 @@ def main():
 
             # Lọc dữ liệu
             df_display = df_calculated.copy()
+
+            # 1. Lọc theo trạng thái
+            if loc_tg != "Tất cả":
+                df_display = df_display[df_display['trang_thai'] == loc_tg]
+
+            # 2. Lọc theo chữ (Search)
             if search:
                 df_display = df_display[
                     df_display.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
 
+            # 3. Lọc theo tháng / năm (Thêm fillna an toàn chống sập)
             date_col = 'ngay_du_kien' if "dự kiến" in loai_ngay else 'ngay_gan_nhat'
             df_display['ngay_temp'] = pd.to_datetime(df_display[date_col], format='%d/%m/%Y', errors='coerce')
-            today = datetime.now()
 
-            if loc_tg != "Tất cả":
-                if loc_tg == "Trong tháng này":
-                    df_display = df_display[
-                        (df_display['ngay_temp'].dt.month == today.month) &
-                        (df_display['ngay_temp'].dt.year  == today.year)]
-                elif loc_tg == "Trong Quý này":
-                    df_display = df_display[
-                        (df_display['ngay_temp'].dt.quarter == (today.month-1)//3+1) &
-                        (df_display['ngay_temp'].dt.year    == today.year)]
-                elif loc_tg == "Trong 6 tháng tới":
-                    df_display = df_display[
-                        (df_display['ngay_temp'].dt.date >= today.date()) &
-                        (df_display['ngay_temp'].dt.date <= (today + relativedelta(months=6)).date())]
-                elif loc_tg == "Trong năm nay":
-                    df_display = df_display[df_display['ngay_temp'].dt.year == today.year]
-                elif loc_tg == "Đã quá hạn":
-                    df_display = df_display[df_display['ngay_temp'].dt.date < today.date()]
-
-            if loc_nam   != "Tất cả": df_display = df_display[df_display['ngay_temp'].dt.year  == int(loc_nam)]
-            if loc_thang != "Tất cả": df_display = df_display[df_display['ngay_temp'].dt.month == int(loc_thang)]
+            if loc_nam != "Tất cả": 
+                df_display = df_display[df_display['ngay_temp'].dt.year.fillna(-1).astype(int) == int(loc_nam)]
+            if loc_thang != "Tất cả": 
+                df_display = df_display[df_display['ngay_temp'].dt.month.fillna(-1).astype(int) == int(loc_thang)]
 
             df_display['ma_ngach'] = df_display['ma_ngach'].apply(format_ma_ngach)
             df_display = df_display.drop(columns=['ngay_temp'], errors='ignore')
@@ -641,21 +639,20 @@ def main():
             styled = df_display.style.map(style_trang_thai, subset=['trang_thai'])
 
             if st.session_state.role == "admin":
-                st.info("💡 Chế độ Admin: Bạn có thể chỉnh sửa trực tiếp trên bảng dưới.")
+                st.info("💡 Chế độ Admin: Bạn có thể chỉnh sửa và thêm dòng mới trực tiếp trên bảng dưới.")
                 edited_df = st.data_editor(
-                    styled, use_container_width=True,
+                    styled, num_rows="dynamic", use_container_width=True,
                     hide_index=True, column_config=col_cfg, disabled=disabled_cols
                 )
                 export_data = edited_df.data if hasattr(edited_df, 'data') else edited_df
             else:
-                st.caption("👁 Chế độ xem: Liên hệ quản trị viên để cập nhật dữ liệu.")
+                st.caption("👁 Chế độ xem: Bạn chỉ có thể xem bảng và các biểu đồ phân tích. Liên hệ quản trị viên để cập nhật dữ liệu.")
                 st.dataframe(styled, use_container_width=True, hide_index=True, column_config=col_cfg)
                 export_data = df_display
 
             st.markdown("<hr class='divider'>", unsafe_allow_html=True)
 
-            # ── ACTION BUTTONS ──────────────────────
-            # CHỈ RENDER NÚT BẤM KHI LÀ ADMIN
+            # ── ACTION BUTTONS CHỈ HIỆN CHO ADMIN ──────────────────────
             if st.session_state.role == "admin":
                 cols = st.columns(3)
                 col_luu = cols[0]
