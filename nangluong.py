@@ -655,13 +655,14 @@ def main():
             st.markdown("<hr class='divider'>", unsafe_allow_html=True)
 
             # ── ACTION BUTTONS ──────────────────────
+            # VÁ LỖI CẤU TRÚC ST.COLUMNS ĐỂ KHÔNG BỊ CRASH GIAO DIỆN Ở CHẾ ĐỘ XEM
             if st.session_state.role == "admin":
-                bc1, bc2, bc3 = st.columns(3)
-            else:
-                bc1, bc2, bc3 = st.columns([0, 1, 1])
-
-            if st.session_state.role == "admin":
-                with bc1:
+                cols = st.columns(3)
+                col_luu = cols[0]
+                col_excel = cols[1]
+                col_word = cols[2]
+                
+                with col_luu:
                     if st.button("💾  Lưu thay đổi vào CSDL", use_container_width=True, type="primary"):
                         recs = []
                         for r in export_data[export_data['ho_ten'].astype(str).str.strip().astype(bool)].to_dict(orient="records"):
@@ -673,9 +674,13 @@ def main():
                             supabase.table("theo_doi_luong").insert(recs).execute()
                         st.success("✅ Đã lưu dữ liệu thành công!")
                         st.rerun()
+            else:
+                cols = st.columns(2)
+                col_excel = cols[0]
+                col_word = cols[1]
 
             # Excel export
-            with bc2:
+            with col_excel:
                 try:
                     buf_e = io.BytesIO()
                     with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
@@ -690,7 +695,6 @@ def main():
                             cell.alignment = Alignment(horizontal='center', vertical='center')
                             ws.column_dimensions[get_column_letter(col_num)].width = 22
                         ws.row_dimensions[1].height = 28
-                        # Zebra stripes
                         stripe = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
                         for row_idx in range(2, ws.max_row + 1):
                             if row_idx % 2 == 0:
@@ -706,7 +710,7 @@ def main():
                     st.warning(f"Lỗi xuất Excel: {ex}")
 
             # Word export
-            with bc3:
+            with col_word:
                 st.download_button(
                     "📝  Xuất tờ trình Word", tao_file_word_dien_bien(export_data, loc_thang, loc_nam),
                     file_name=f"DienBienLuong_{datetime.now().strftime('%Y%m%d')}.docx",
