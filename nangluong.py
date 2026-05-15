@@ -167,18 +167,6 @@ html, body, [class*="css"] { font-family: 'Be Vietnam Pro', sans-serif !importan
     box-shadow: var(--shadow);
 }
 
-/* ── Status pills ── */
-.pill {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-}
-.pill-ok   { background: var(--ok-bg);   color: var(--ok); }
-.pill-warn { background: var(--warn-bg); color: var(--warn); }
-.pill-near { background: var(--near-bg); color: var(--near); }
-
 /* ── Table ── */
 [data-testid="stDataFrame"], [data-testid="data-editor"] {
     border: 1px solid var(--border) !important;
@@ -236,22 +224,6 @@ html, body, [class*="css"] { font-family: 'Be Vietnam Pro', sans-serif !importan
     box-shadow: 0 4px 12px rgba(13,71,161,.3) !important;
 }
 
-/* ── Info / Success / Warning boxes ── */
-.stInfo    { border-left: 4px solid var(--primary) !important; border-radius: 0 8px 8px 0 !important; }
-.stSuccess { border-left: 4px solid var(--teal) !important; border-radius: 0 8px 8px 0 !important; }
-
-/* ── Section headers ── */
-.section-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    margin: 0 0 10px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--border);
-}
-
 /* ── Admin status badge ── */
 .admin-badge {
     background: linear-gradient(135deg, #1b5e20, #2e7d32);
@@ -303,7 +275,6 @@ if "role" not in st.session_state:
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
-    # Logo placeholder (SVG ngôi sao đảng đơn giản)
     st.markdown("""
     <div style="text-align:center; margin-bottom:20px;">
         <div style="font-size:48px;">⭐</div>
@@ -335,7 +306,7 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:11px; opacity:.5; text-align:center; line-height:1.8;">
-        Phiên bản 4.3<br>
+        Phiên bản 4.4<br>
         Phát triển bởi Tuấn 🚀<br>
         © 2025 Ban TG&DV Tuyên Quang
     </div>
@@ -547,10 +518,7 @@ def main():
         df_base      = pd.DataFrame(res.data) if res.data else pd.DataFrame(
             columns=["ho_ten", "ngay_gan_nhat", "ma_ngach"])
         
-        # Tiến hành tính toán trạng thái
         df_calculated = tinh_toan_nang_luong(df_base)
-        
-        # BỎ ĐI CÁC DÒNG RỖNG TRƯỚC KHI ĐẾM ĐỂ TRÁNH LỖI LỌC DỮ LIỆU
         df_calculated = df_calculated[df_calculated['ho_ten'].astype(str).str.strip() != ""]
 
         # ── KPI CARDS ──────────────────────────────
@@ -591,40 +559,48 @@ def main():
         # TAB 1 – QUẢN LÝ
         # ══════════════════════════════════════════
         with tab1:
-            # Filter bar
             with st.container():
                 st.markdown('<div class="section-title">🔍 Bộ lọc tìm kiếm</div>', unsafe_allow_html=True)
                 c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.8, 1, 1])
                 search   = c1.text_input("Tên / chức vụ", placeholder="Gõ để tìm kiếm...", label_visibility="visible")
                 
-                # SỬA LẠI TUỲ CHỌN CHO KHỚP HOÀN TOÀN VỚI CỘT TRẠNG THÁI
                 loc_tg   = c2.selectbox("Trạng thái",
-                    ["Tất cả", "🔴 Sắp đến hạn (Tháng này)", "🟡 Sắp đến hạn (Quý này)", "🟢 Chưa đến hạn", "⛔ Đã quá hạn", "Chưa có ngày"])
-                
+                    ["Tất cả", "Trong tháng này", "Trong Quý này", "Trong 6 tháng tới", "Trong năm nay", "Đã quá hạn"])
                 loai_ngay = c3.selectbox("Loại ngày lọc",
                     ["Ngày dự kiến (Tương lai)", "Ngày gần nhất (Đã nâng)"])
                 loc_nam  = c4.selectbox("Năm", ["Tất cả"] + [str(y) for y in range(2020, 2036)])
                 loc_thang = c5.selectbox("Tháng", ["Tất cả"] + [str(m) for m in range(1, 13)])
 
-            # Lọc dữ liệu
+            # LOGIC LỌC CHUẨN CỦA SẾP
             df_display = df_calculated.copy()
-
-            # 1. Lọc theo trạng thái
-            if loc_tg != "Tất cả":
-                df_display = df_display[df_display['trang_thai'] == loc_tg]
-
-            # 2. Lọc theo chữ (Search)
             if search:
-                df_display = df_display[
-                    df_display.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
+                df_display = df_display[df_display.astype(str).apply(lambda x: x.str.contains(search, case=False)).any(axis=1)]
 
-            # 3. Lọc theo tháng / năm (Thêm fillna an toàn chống sập)
             date_col = 'ngay_du_kien' if "dự kiến" in loai_ngay else 'ngay_gan_nhat'
             df_display['ngay_temp'] = pd.to_datetime(df_display[date_col], format='%d/%m/%Y', errors='coerce')
+            today = datetime.now()
 
-            if loc_nam != "Tất cả": 
+            if loc_tg != "Tất cả":
+                if loc_tg == "Trong tháng này":
+                    df_display = df_display[
+                        (df_display['ngay_temp'].dt.month == today.month) &
+                        (df_display['ngay_temp'].dt.year == today.year)]
+                elif loc_tg == "Trong Quý này":
+                    df_display = df_display[
+                        (df_display['ngay_temp'].dt.quarter == (today.month-1)//3+1) &
+                        (df_display['ngay_temp'].dt.year == today.year)]
+                elif loc_tg == "Trong 6 tháng tới":
+                    df_display = df_display[
+                        (df_display['ngay_temp'].dt.date >= today.date()) &
+                        (df_display['ngay_temp'].dt.date <= (today + relativedelta(months=6)).date())]
+                elif loc_tg == "Trong năm nay":
+                    df_display = df_display[df_display['ngay_temp'].dt.year == today.year]
+                elif loc_tg == "Đã quá hạn":
+                    df_display = df_display[df_display['ngay_temp'].dt.date < today.date()]
+
+            if loc_nam != "Tất cả":
                 df_display = df_display[df_display['ngay_temp'].dt.year.fillna(-1).astype(int) == int(loc_nam)]
-            if loc_thang != "Tất cả": 
+            if loc_thang != "Tất cả":
                 df_display = df_display[df_display['ngay_temp'].dt.month.fillna(-1).astype(int) == int(loc_thang)]
 
             df_display['ma_ngach'] = df_display['ma_ngach'].apply(format_ma_ngach)
@@ -635,7 +611,6 @@ def main():
             # ── BẢNG DỮ LIỆU ────────────────────────
             disabled_cols = ["bac_luong_moi", "he_so_moi", "vuot_khung_moi", "ngay_du_kien", "trang_thai"]
             col_cfg = {"ma_ngach": st.column_config.TextColumn("Mã ngạch")}
-
             styled = df_display.style.map(style_trang_thai, subset=['trang_thai'])
 
             if st.session_state.role == "admin":
@@ -646,13 +621,13 @@ def main():
                 )
                 export_data = edited_df.data if hasattr(edited_df, 'data') else edited_df
             else:
-                st.caption("👁 Chế độ xem: Bạn chỉ có thể xem bảng và các biểu đồ phân tích. Liên hệ quản trị viên để cập nhật dữ liệu.")
+                st.caption("👁 Chế độ xem: Bạn chỉ có thể xem bảng và biểu đồ phân tích. Liên hệ quản trị viên để cập nhật dữ liệu.")
                 st.dataframe(styled, use_container_width=True, hide_index=True, column_config=col_cfg)
                 export_data = df_display
 
             st.markdown("<hr class='divider'>", unsafe_allow_html=True)
 
-            # ── ACTION BUTTONS CHỈ HIỆN CHO ADMIN ──────────────────────
+            # ── ACTION BUTTONS ──────────────────────
             if st.session_state.role == "admin":
                 cols = st.columns(3)
                 col_luu = cols[0]
@@ -671,45 +646,47 @@ def main():
                             supabase.table("theo_doi_luong").insert(recs).execute()
                         st.success("✅ Đã lưu dữ liệu thành công!")
                         st.rerun()
+            else:
+                cols = st.columns(2)
+                col_excel = cols[0]
+                col_word = cols[1]
 
-                # Excel export
-                with col_excel:
-                    try:
-                        buf_e = io.BytesIO()
-                        with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
-                            export_data.to_excel(wr, index=False, sheet_name='NangLuong')
-                            ws = wr.sheets['NangLuong']
-                            hdr_fill = PatternFill(start_color="0D47A1", end_color="0D47A1", fill_type="solid")
-                            hdr_font = Font(bold=True, color="FFFFFF", name="Be Vietnam Pro", size=11)
-                            for col_num in range(1, len(export_data.columns) + 1):
-                                cell = ws.cell(row=1, column=col_num)
-                                cell.fill = hdr_fill
-                                cell.font = hdr_font
-                                cell.alignment = Alignment(horizontal='center', vertical='center')
-                                ws.column_dimensions[get_column_letter(col_num)].width = 22
-                            ws.row_dimensions[1].height = 28
-                            stripe = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
-                            for row_idx in range(2, ws.max_row + 1):
-                                if row_idx % 2 == 0:
-                                    for col_idx in range(1, len(export_data.columns) + 1):
-                                        ws.cell(row=row_idx, column=col_idx).fill = stripe
-                        st.download_button(
-                            "📥  Xuất báo cáo Excel", buf_e.getvalue(),
-                            file_name=f"NangLuong_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
-                        )
-                    except Exception as ex:
-                        st.warning(f"Lỗi xuất Excel: {ex}")
-
-                # Word export
-                with col_word:
+            with col_excel:
+                try:
+                    buf_e = io.BytesIO()
+                    with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
+                        export_data.to_excel(wr, index=False, sheet_name='NangLuong')
+                        ws = wr.sheets['NangLuong']
+                        hdr_fill = PatternFill(start_color="0D47A1", end_color="0D47A1", fill_type="solid")
+                        hdr_font = Font(bold=True, color="FFFFFF", name="Be Vietnam Pro", size=11)
+                        for col_num in range(1, len(export_data.columns) + 1):
+                            cell = ws.cell(row=1, column=col_num)
+                            cell.fill = hdr_fill
+                            cell.font = hdr_font
+                            cell.alignment = Alignment(horizontal='center', vertical='center')
+                            ws.column_dimensions[get_column_letter(col_num)].width = 22
+                        ws.row_dimensions[1].height = 28
+                        stripe = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
+                        for row_idx in range(2, ws.max_row + 1):
+                            if row_idx % 2 == 0:
+                                for col_idx in range(1, len(export_data.columns) + 1):
+                                    ws.cell(row=row_idx, column=col_idx).fill = stripe
                     st.download_button(
-                        "📝  Xuất tờ trình Word", tao_file_word_dien_bien(export_data, loc_thang, loc_nam),
-                        file_name=f"DienBienLuong_{datetime.now().strftime('%Y%m%d')}.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "📥  Xuất báo cáo Excel", buf_e.getvalue(),
+                        file_name=f"NangLuong_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
+                except Exception as ex:
+                    st.warning(f"Lỗi xuất Excel: {ex}")
+
+            with col_word:
+                st.download_button(
+                    "📝  Xuất tờ trình Word", tao_file_word_dien_bien(export_data, loc_thang, loc_nam),
+                    file_name=f"DienBienLuong_{datetime.now().strftime('%Y%m%d')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True
+                )
 
         # ══════════════════════════════════════════
         # TAB 2 – DASHBOARD
@@ -723,7 +700,6 @@ def main():
 
             r2c1, r2c2 = st.columns(2)
 
-            # Chart 1: Mã ngạch
             df_ma = df_calculated['ma_ngach'].value_counts().reset_index()
             df_ma = df_ma[df_ma['ma_ngach'].astype(str).str.strip() != ""]
             fig_ma = px.bar(df_ma, x='ma_ngach', y='count', text='count',
@@ -742,7 +718,6 @@ def main():
                 st.plotly_chart(fig_ma, use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # Chart 2: Ngạch lương
             df_ngach = df_calculated['ngach_luong'].value_counts().reset_index()
             df_ngach = df_ngach[df_ngach['ngach_luong'].astype(str).str.strip() != ""]
             fig_ngach = px.bar(df_ngach, y='ngach_luong', x='count', text='count',
@@ -763,7 +738,6 @@ def main():
 
             r3c1, r3c2 = st.columns(2)
 
-            # Chart 3: Bậc lương (donut)
             df_bac = df_calculated['bac_luong'].value_counts().reset_index()
             df_bac = df_bac[df_bac['bac_luong'].astype(str).str.strip() != ""]
             fig_bac = px.pie(df_bac, names='bac_luong', values='count', hole=.55,
@@ -780,7 +754,6 @@ def main():
                 st.plotly_chart(fig_bac, use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # Chart 4: Trạng thái nâng lương
             df_tt = df_calculated['trang_thai'].value_counts().reset_index()
             df_tt = df_tt[df_tt['trang_thai'].astype(str).str.strip() != ""]
             color_map = {
