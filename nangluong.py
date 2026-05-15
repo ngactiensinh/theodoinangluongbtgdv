@@ -335,7 +335,7 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:11px; opacity:.5; text-align:center; line-height:1.8;">
-        Phiên bản 4.1<br>
+        Phiên bản 4.2<br>
         Phát triển bởi Tuấn 🚀<br>
         © 2025 Ban TG&DV Tuyên Quang
     </div>
@@ -642,8 +642,6 @@ def main():
 
             if st.session_state.role == "admin":
                 st.info("💡 Chế độ Admin: Bạn có thể chỉnh sửa trực tiếp trên bảng dưới.")
-                
-                # BỎ THUỘC TÍNH num_rows="dynamic" ĐỂ TẮT CHỨC NĂNG THÊM/XÓA DÒNG
                 edited_df = st.data_editor(
                     styled, use_container_width=True,
                     hide_index=True, column_config=col_cfg, disabled=disabled_cols
@@ -657,6 +655,7 @@ def main():
             st.markdown("<hr class='divider'>", unsafe_allow_html=True)
 
             # ── ACTION BUTTONS ──────────────────────
+            # CHỈ RENDER NÚT BẤM KHI LÀ ADMIN
             if st.session_state.role == "admin":
                 cols = st.columns(3)
                 col_luu = cols[0]
@@ -675,49 +674,45 @@ def main():
                             supabase.table("theo_doi_luong").insert(recs).execute()
                         st.success("✅ Đã lưu dữ liệu thành công!")
                         st.rerun()
-            else:
-                cols = st.columns(2)
-                col_excel = cols[0]
-                col_word = cols[1]
 
-            # Excel export
-            with col_excel:
-                try:
-                    buf_e = io.BytesIO()
-                    with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
-                        export_data.to_excel(wr, index=False, sheet_name='NangLuong')
-                        ws = wr.sheets['NangLuong']
-                        hdr_fill = PatternFill(start_color="0D47A1", end_color="0D47A1", fill_type="solid")
-                        hdr_font = Font(bold=True, color="FFFFFF", name="Be Vietnam Pro", size=11)
-                        for col_num in range(1, len(export_data.columns) + 1):
-                            cell = ws.cell(row=1, column=col_num)
-                            cell.fill = hdr_fill
-                            cell.font = hdr_font
-                            cell.alignment = Alignment(horizontal='center', vertical='center')
-                            ws.column_dimensions[get_column_letter(col_num)].width = 22
-                        ws.row_dimensions[1].height = 28
-                        stripe = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
-                        for row_idx in range(2, ws.max_row + 1):
-                            if row_idx % 2 == 0:
-                                for col_idx in range(1, len(export_data.columns) + 1):
-                                    ws.cell(row=row_idx, column=col_idx).fill = stripe
+                # Excel export
+                with col_excel:
+                    try:
+                        buf_e = io.BytesIO()
+                        with pd.ExcelWriter(buf_e, engine='openpyxl') as wr:
+                            export_data.to_excel(wr, index=False, sheet_name='NangLuong')
+                            ws = wr.sheets['NangLuong']
+                            hdr_fill = PatternFill(start_color="0D47A1", end_color="0D47A1", fill_type="solid")
+                            hdr_font = Font(bold=True, color="FFFFFF", name="Be Vietnam Pro", size=11)
+                            for col_num in range(1, len(export_data.columns) + 1):
+                                cell = ws.cell(row=1, column=col_num)
+                                cell.fill = hdr_fill
+                                cell.font = hdr_font
+                                cell.alignment = Alignment(horizontal='center', vertical='center')
+                                ws.column_dimensions[get_column_letter(col_num)].width = 22
+                            ws.row_dimensions[1].height = 28
+                            stripe = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
+                            for row_idx in range(2, ws.max_row + 1):
+                                if row_idx % 2 == 0:
+                                    for col_idx in range(1, len(export_data.columns) + 1):
+                                        ws.cell(row=row_idx, column=col_idx).fill = stripe
+                        st.download_button(
+                            "📥  Xuất báo cáo Excel", buf_e.getvalue(),
+                            file_name=f"NangLuong_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    except Exception as ex:
+                        st.warning(f"Lỗi xuất Excel: {ex}")
+
+                # Word export
+                with col_word:
                     st.download_button(
-                        "📥  Xuất báo cáo Excel", buf_e.getvalue(),
-                        file_name=f"NangLuong_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "📝  Xuất tờ trình Word", tao_file_word_dien_bien(export_data, loc_thang, loc_nam),
+                        file_name=f"DienBienLuong_{datetime.now().strftime('%Y%m%d')}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True
                     )
-                except Exception as ex:
-                    st.warning(f"Lỗi xuất Excel: {ex}")
-
-            # Word export
-            with col_word:
-                st.download_button(
-                    "📝  Xuất tờ trình Word", tao_file_word_dien_bien(export_data, loc_thang, loc_nam),
-                    file_name=f"DienBienLuong_{datetime.now().strftime('%Y%m%d')}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True
-                )
 
         # ══════════════════════════════════════════
         # TAB 2 – DASHBOARD
