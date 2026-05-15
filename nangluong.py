@@ -316,7 +316,7 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
 
     if st.session_state.role == "user":
-        st.markdown('<div class="user-badge">👁 Chế độ: XEM (chỉ đọc)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="user-badge">👁 XIN CHÀO ĐỒNG CHÍ</div>', unsafe_allow_html=True)
         with st.expander("🔐 Đăng nhập Quản trị"):
             admin_pwd = st.text_input("Mật khẩu:", type="password", label_visibility="collapsed", placeholder="Nhập mật khẩu admin...")
             if st.button("Đăng nhập", use_container_width=True):
@@ -335,8 +335,8 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:11px; opacity:.5; text-align:center; line-height:1.8;">
-        Phiên bản 4.2<br>
-        Phát triển bởi Tuấn 🚀<br>
+        Phiên bản 1.0<br>
+        Phát triển bởi Ngạc Văn Tuấn 🚀<br>
         © 2025 Ban TG&DV Tuyên Quang
     </div>
     """, unsafe_allow_html=True)
