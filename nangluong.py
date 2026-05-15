@@ -335,7 +335,7 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:11px; opacity:.5; text-align:center; line-height:1.8;">
-        Phiên bản 4.0<br>
+        Phiên bản 4.1<br>
         Phát triển bởi Tuấn 🚀<br>
         © 2025 Ban TG&DV Tuyên Quang
     </div>
@@ -642,8 +642,10 @@ def main():
 
             if st.session_state.role == "admin":
                 st.info("💡 Chế độ Admin: Bạn có thể chỉnh sửa trực tiếp trên bảng dưới.")
+                
+                # BỎ THUỘC TÍNH num_rows="dynamic" ĐỂ TẮT CHỨC NĂNG THÊM/XÓA DÒNG
                 edited_df = st.data_editor(
-                    styled, num_rows="dynamic", use_container_width=True,
+                    styled, use_container_width=True,
                     hide_index=True, column_config=col_cfg, disabled=disabled_cols
                 )
                 export_data = edited_df.data if hasattr(edited_df, 'data') else edited_df
@@ -655,7 +657,6 @@ def main():
             st.markdown("<hr class='divider'>", unsafe_allow_html=True)
 
             # ── ACTION BUTTONS ──────────────────────
-            # VÁ LỖI CẤU TRÚC ST.COLUMNS ĐỂ KHÔNG BỊ CRASH GIAO DIỆN Ở CHẾ ĐỘ XEM
             if st.session_state.role == "admin":
                 cols = st.columns(3)
                 col_luu = cols[0]
