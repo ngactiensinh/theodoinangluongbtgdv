@@ -704,7 +704,7 @@ def main():
                     st.markdown("##### ⚙️ Thông tin chung của đợt xét nâng lương")
                     cA, cB, cC = st.columns(3)
                     so_qd = cA.text_input("Số Quyết định (không gồm '-QĐ/BTGDVTU')", value="")
-                    so_tt = cB.text_input("Số Tờ trình (không gồm '-TTr/BTGDV')", value="")
+                    so_tt = cB.text_input("Số Tờ trình (không gồm '-TTr/BTGDVTU')", value="")
                     ngay_hop_bb = cC.text_input("Ngày họp Hội đồng (dd/mm/yyyy)", value=datetime.now().strftime("%d/%m/%Y"))
 
                     cD, cE, cF = st.columns(3)
