@@ -736,50 +736,65 @@ def main():
                     def _slug_ten(ten):
                         return str(ten).strip().replace(" ", "_")
 
+                    if "vb_files" not in st.session_state:
+                        st.session_state.vb_files = {}
+                    if "vb_selection_key" not in st.session_state:
+                        st.session_state.vb_selection_key = None
+
+                    selection_key = tuple(sorted(chon_ten))
+
                     if st.button("📄  Tạo văn bản", type="primary", use_container_width=True):
-                        if True:
-                            files = {}
-                            so_qd_dung = so_qd if tong_so_qd <= 1 else ""
+                        files = {}
+                        so_qd_dung = so_qd if tong_so_qd <= 1 else ""
 
-                            for r in nhom_qd_tx:
-                                fname = f"QuyetDinh_ThuongXuyen_{_slug_ten(r['ho_ten'])}_{datetime.now().strftime('%Y%m%d')}.docx"
-                                files[fname] = tao_quyet_dinh(
-                                    r, "thuong_xuyen", so_qd_dung, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
-                            for r in nhom_qd_vk:
-                                fname = f"QuyetDinh_VuotKhung_{_slug_ten(r['ho_ten'])}_{datetime.now().strftime('%Y%m%d')}.docx"
-                                files[fname] = tao_quyet_dinh(
-                                    r, "vuot_khung", so_qd_dung, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                        for r in nhom_qd_tx:
+                            fname = f"QuyetDinh_ThuongXuyen_{_slug_ten(r['ho_ten'])}_{datetime.now().strftime('%Y%m%d')}.docx"
+                            files[fname] = tao_quyet_dinh(
+                                r, "thuong_xuyen", so_qd_dung, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                        for r in nhom_qd_vk:
+                            fname = f"QuyetDinh_VuotKhung_{_slug_ten(r['ho_ten'])}_{datetime.now().strftime('%Y%m%d')}.docx"
+                            files[fname] = tao_quyet_dinh(
+                                r, "vuot_khung", so_qd_dung, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
 
-                            if nhom_qd_tx:
-                                files[f"BienBan_ThuongXuyen_CBCC_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
-                                    nhom_qd_tx, "thuong_xuyen", False, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
-                                    thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
-                            if nhom_qd_vk:
-                                files[f"BienBan_VuotKhung_CBCC_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
-                                    nhom_qd_vk, "vuot_khung", False, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
-                                    thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
-                            if nhom_tt_tx:
-                                files[f"ToTrinh_ThuongXuyen_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_to_trinh(
-                                    nhom_tt_tx, "thuong_xuyen", so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
-                                files[f"BienBan_ThuongXuyen_LanhDao_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
-                                    nhom_tt_tx, "thuong_xuyen", True, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
-                                    thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
-                            if nhom_tt_vk:
-                                files[f"ToTrinh_VuotKhung_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_to_trinh(
-                                    nhom_tt_vk, "vuot_khung", so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
-                                files[f"BienBan_VuotKhung_LanhDao_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
-                                    nhom_tt_vk, "vuot_khung", True, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
-                                    thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
+                        if nhom_qd_tx:
+                            files[f"BienBan_ThuongXuyen_CBCC_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                nhom_qd_tx, "thuong_xuyen", False, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
+                                thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
+                        if nhom_qd_vk:
+                            files[f"BienBan_VuotKhung_CBCC_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                nhom_qd_vk, "vuot_khung", False, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
+                                thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
+                        if nhom_tt_tx:
+                            files[f"ToTrinh_ThuongXuyen_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_to_trinh(
+                                nhom_tt_tx, "thuong_xuyen", so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                            files[f"BienBan_ThuongXuyen_LanhDao_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                nhom_tt_tx, "thuong_xuyen", True, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
+                                thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
+                        if nhom_tt_vk:
+                            files[f"ToTrinh_VuotKhung_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_to_trinh(
+                                nhom_tt_vk, "vuot_khung", so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                            files[f"BienBan_VuotKhung_LanhDao_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                nhom_tt_vk, "vuot_khung", True, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
+                                thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
 
-                            st.success(f"✅ Đã tạo {len(files)} văn bản. Tải về bên dưới:")
-                            cols_dl = st.columns(min(len(files), 4))
-                            for i, (fname, fdata) in enumerate(files.items()):
-                                with cols_dl[i % len(cols_dl)]:
-                                    st.download_button(
-                                        f"📥 {fname}", fdata, file_name=fname,
-                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                        use_container_width=True, key=f"dl_{fname}"
-                                    )
+                        st.session_state.vb_files = files
+                        st.session_state.vb_selection_key = selection_key
+
+                    # Hiển thị các nút tải từ session_state — không mất khi bấm tải từng file,
+                    # vì download_button làm Streamlit chạy lại trang nhưng session_state vẫn giữ nguyên.
+                    if st.session_state.vb_files:
+                        if st.session_state.vb_selection_key != selection_key:
+                            st.warning("⚠️ Danh sách cán bộ hoặc thông tin đã thay đổi so với lần tạo gần nhất. "
+                                       "Bấm lại **Tạo văn bản** để cập nhật, hoặc tải các file dưới đây (theo lựa chọn cũ).")
+                        st.success(f"✅ Đã tạo {len(st.session_state.vb_files)} văn bản. Tải về bên dưới:")
+                        cols_dl = st.columns(min(len(st.session_state.vb_files), 4))
+                        for i, (fname, fdata) in enumerate(st.session_state.vb_files.items()):
+                            with cols_dl[i % len(cols_dl)]:
+                                st.download_button(
+                                    f"📥 {fname}", fdata, file_name=fname,
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    use_container_width=True, key=f"dl_{fname}"
+                                )
                 else:
                     st.info("👆 Chọn ít nhất một cán bộ ở trên để bắt đầu.")
 
