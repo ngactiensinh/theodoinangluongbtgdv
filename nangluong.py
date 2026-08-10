@@ -222,9 +222,23 @@ def tinh_toan_nang_luong(df):
                     vk_moi  = "5%"
                 else:
                     bac_moi  = f"{x+1}/{y}"
-                    interval = 2 if any(k in ngach or k in chuc_vu for k in
-                                        ['KẾ TOÁN VIÊN TRUNG CẤP', 'LÁI XE', 'PHỤC VỤ', 'VĂN THƯ']) else 3
-                    delta    = 0.34 if 'CVC' in ngach else (0.62 if 'CVCC' in ngach else 0.33)
+
+                    # Xác định nhóm ngạch để lấy đúng hệ số chênh lệch giữa 2 bậc liền kề
+                    # và thời hạn nâng bậc lương thường xuyên tương ứng.
+                    la_ke_toan_tc = 'KẾ TOÁN VIÊN TRUNG CẤP' in ngach or 'KẾ TOÁN VIÊN TRUNG CẤP' in chuc_vu
+                    la_nhan_vien  = any(k in ngach or k in chuc_vu for k in ['LÁI XE', 'PHỤC VỤ', 'VĂN THƯ'])
+
+                    if 'CVCC' in ngach:                 # Chuyên viên cao cấp — kiểm tra TRƯỚC 'CVC'
+                        delta, interval = 0.62, 3
+                    elif 'CVC' in ngach:                # Chuyên viên chính
+                        delta, interval = 0.34, 3
+                    elif la_ke_toan_tc:                 # Kế toán viên trung cấp (Loại B)
+                        delta, interval = 0.20, 2
+                    elif la_nhan_vien:                  # Lái xe / Phục vụ / Văn thư
+                        delta, interval = 0.20, 2        # TODO: nhờ bạn xác nhận lại hệ số chính xác cho nhóm này
+                    else:                                # Chuyên viên và tương đương (mặc định)
+                        delta, interval = 0.33, 3
+
                     ngay_dk  = ngay_ht + relativedelta(years=interval)
                     hs_moi   = hs_ht + delta
             except:
