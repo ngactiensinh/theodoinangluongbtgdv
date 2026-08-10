@@ -8,6 +8,11 @@ import io
 import plotly.express as px
 import plotly.graph_objects as go
 
+from van_ban_nang_luong import (
+    tao_quyet_dinh, tao_to_trinh, tao_bien_ban,
+    xac_dinh_loai_nang_luong, la_lanh_dao, THANH_PHAN_HOI_DONG_MAC_DINH,
+)
+
 try:
     from docx import Document
     from docx.shared import Cm, Pt, RGBColor
@@ -85,6 +90,8 @@ html, body, [class*="css"] { font-family: 'Be Vietnam Pro', sans-serif !importan
 .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 label { font-size: 12px !important; font-weight: 600 !important; color: var(--muted) !important; }
 .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+.vb-group { background: #f4f6fb; border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
+.vb-group b { color: var(--primary); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -127,7 +134,7 @@ with st.sidebar:
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:11px; opacity:.5; text-align:center; line-height:1.8;">
-        Phiên bản 4.5<br>
+        Phiên bản 4.6<br>
         Phát triển bởi Tuấn 🚀<br>
         © 2025 Ban TG&DV Tuyên Quang
     </div>
@@ -373,7 +380,10 @@ def main():
         """, unsafe_allow_html=True)
 
         # ── TABS ───────────────────────────────────
-        tab1, tab2 = st.tabs(["📋  Quản lý & Lọc dữ liệu", "📊  Dashboard thống kê"])
+        if st.session_state.role == "admin":
+            tab1, tab2, tab3 = st.tabs(["📋  Quản lý & Lọc dữ liệu", "📊  Dashboard thống kê", "🏛️  Văn bản Nâng lương"])
+        else:
+            tab1, tab2 = st.tabs(["📋  Quản lý & Lọc dữ liệu", "📊  Dashboard thống kê"])
 
         # ══════════════════════════════════════════
         # TAB 1 – QUẢN LÝ
@@ -637,6 +647,108 @@ def main():
                 st.markdown('<div class="chart-wrap">', unsafe_allow_html=True)
                 st.plotly_chart(fig_tt, use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+
+        # ══════════════════════════════════════════
+        # TAB 3 – VĂN BẢN NÂNG LƯƠNG (CHỈ ADMIN)
+        # ══════════════════════════════════════════
+        if st.session_state.role == "admin":
+            with tab3:
+                st.markdown('<div class="section-title">🏛️ Xây dựng Quyết định / Tờ trình / Biên bản nâng lương</div>', unsafe_allow_html=True)
+                st.caption("Chọn các cán bộ đến đợt xét nâng lương trong kỳ này. Hệ thống tự động phân loại: "
+                           "cán bộ **Trưởng ban / Phó Trưởng ban** → **Tờ trình gửi Ban Tổ chức Tỉnh ủy**; "
+                           "các cán bộ, chuyên viên khác → **Quyết định** do Trưởng Ban ký ban hành trực tiếp. "
+                           "Cả hai đều kèm theo **Biên bản họp Hội đồng xét nâng lương**.")
+
+                ds_ten = df_calculated['ho_ten'].astype(str).tolist()
+                chon_ten = st.multiselect("👥 Chọn cán bộ đến đợt xét nâng lương", ds_ten)
+
+                if chon_ten:
+                    ds_rows_full = []
+                    for ten in chon_ten:
+                        row = df_calculated[df_calculated['ho_ten'] == ten].iloc[0].to_dict()
+                        row['loai'] = xac_dinh_loai_nang_luong(row)
+                        row['la_lanh_dao'] = la_lanh_dao(row)
+                        ds_rows_full.append(row)
+
+                    nhom_qd_tx = [r for r in ds_rows_full if not r['la_lanh_dao'] and r['loai'] == 'thuong_xuyen']
+                    nhom_qd_vk = [r for r in ds_rows_full if not r['la_lanh_dao'] and r['loai'] == 'vuot_khung']
+                    nhom_tt_tx = [r for r in ds_rows_full if r['la_lanh_dao'] and r['loai'] == 'thuong_xuyen']
+                    nhom_tt_vk = [r for r in ds_rows_full if r['la_lanh_dao'] and r['loai'] == 'vuot_khung']
+
+                    def _ten_list(rows):
+                        return ", ".join(r['ho_ten'] for r in rows) if rows else "—"
+
+                    st.markdown(f"""
+                    <div class="vb-group">
+                    <b>📄 Quyết định — nâng lương thường xuyên</b> ({len(nhom_qd_tx)}): {_ten_list(nhom_qd_tx)}<br>
+                    <b>📄 Quyết định — nâng phụ cấp vượt khung</b> ({len(nhom_qd_vk)}): {_ten_list(nhom_qd_vk)}<br>
+                    <b>📝 Tờ trình BTC Tỉnh ủy — nâng lương thường xuyên</b> ({len(nhom_tt_tx)}): {_ten_list(nhom_tt_tx)}<br>
+                    <b>📝 Tờ trình BTC Tỉnh ủy — nâng phụ cấp vượt khung</b> ({len(nhom_tt_vk)}): {_ten_list(nhom_tt_vk)}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("##### ⚙️ Thông tin chung của đợt xét nâng lương")
+                    cA, cB, cC = st.columns(3)
+                    so_qd = cA.text_input("Số Quyết định (không gồm '-QĐ/BTGDVTU')", value="")
+                    so_tt = cB.text_input("Số Tờ trình (không gồm '-TTr/BTGDV')", value="")
+                    ngay_hop_bb = cC.text_input("Ngày họp Hội đồng (dd/mm/yyyy)", value=datetime.now().strftime("%d/%m/%Y"))
+
+                    cD, cE, cF = st.columns(3)
+                    ngay_ky = cD.text_input("Ngày ký văn bản", value=datetime.now().strftime("%d"))
+                    thang_ky = cE.text_input("Tháng ký văn bản", value=datetime.now().strftime("%m"))
+                    nam_ky = cF.text_input("Năm ký văn bản", value=datetime.now().strftime("%Y"))
+
+                    cG, cH = st.columns(2)
+                    gio_bat_dau = cG.text_input("Giờ họp bắt đầu", value="08 giờ 00")
+                    gio_ket_thuc = cH.text_input("Giờ họp kết thúc", value="09 giờ 00")
+
+                    cI, cJ = st.columns(2)
+                    truong_ban = cI.text_input("Trưởng Ban (người ký QĐ/Tờ trình, chủ trì họp)", value="Trần Mạnh Lợi")
+                    thu_ky = cJ.text_input("Thư ký Hội đồng", value="Đinh Thị Thúy")
+
+                    thanh_phan_text = st.text_area("👥 Thành phần Hội đồng xét nâng lương (mỗi người 1 dòng)",
+                                                     value=THANH_PHAN_HOI_DONG_MAC_DINH, height=200)
+
+                    st.markdown("<hr class='divider'>", unsafe_allow_html=True)
+
+                    if st.button("📄  Tạo văn bản", type="primary", use_container_width=True):
+                        loi = []
+                        if not so_qd and (nhom_qd_tx or nhom_qd_vk):
+                            loi.append("Vui lòng nhập Số Quyết định.")
+                        if not so_tt and (nhom_tt_tx or nhom_tt_vk):
+                            loi.append("Vui lòng nhập Số Tờ trình.")
+                        if loi:
+                            for l in loi:
+                                st.error(f"⚠️ {l}")
+                        else:
+                            files = {}
+                            if nhom_qd_tx:
+                                files[f"QuyetDinh_ThuongXuyen_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_quyet_dinh(
+                                    nhom_qd_tx, "thuong_xuyen", so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                            if nhom_qd_vk:
+                                files[f"QuyetDinh_VuotKhung_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_quyet_dinh(
+                                    nhom_qd_vk, "vuot_khung", so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                            if nhom_tt_tx:
+                                files[f"ToTrinh_ThuongXuyen_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_to_trinh(
+                                    nhom_tt_tx, "thuong_xuyen", so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                            if nhom_tt_vk:
+                                files[f"ToTrinh_VuotKhung_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_to_trinh(
+                                    nhom_tt_vk, "vuot_khung", so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                            files[f"BienBan_HopXetNangLuong_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                ds_rows_full, ngay_hop_bb, gio_bat_dau, gio_ket_thuc, thanh_phan_text,
+                                truong_ban=truong_ban, thu_ky=thu_ky)
+
+                            st.success(f"✅ Đã tạo {len(files)} văn bản. Tải về bên dưới:")
+                            cols_dl = st.columns(len(files))
+                            for i, (fname, fdata) in enumerate(files.items()):
+                                with cols_dl[i]:
+                                    st.download_button(
+                                        f"📥 {fname}", fdata, file_name=fname,
+                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                        use_container_width=True, key=f"dl_{fname}"
+                                    )
+                else:
+                    st.info("👆 Chọn ít nhất một cán bộ ở trên để bắt đầu.")
 
     except Exception as e:
         st.error(f"Lỗi hệ thống: {e}")
