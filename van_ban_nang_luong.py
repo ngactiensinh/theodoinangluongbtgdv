@@ -400,7 +400,7 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
                              + cau_dien_bien_luong(r, loai))
             _set_run(run)
 
-    ghi_chu = _p(doc, "(Có Biên bản họp xét và dự thảo Quyết định kèm theo)",
+    ghi_chu = _p(doc, "(Có Biên bản họp xét kèm theo)",
                  align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, space_after=8)
     _p(doc, "Ban Tuyên giáo và Dân vận Tỉnh ủy trân trọng đề nghị Ban Tổ chức Tỉnh ủy trình Thường trực Tỉnh ủy "
             "xem xét, quyết định.")
