@@ -85,12 +85,16 @@ def _set_run(run, size=14, bold=False, italic=False, underline=False, color=None
 
 
 def _p(doc, text="", align=WD_ALIGN_PARAGRAPH.JUSTIFY, size=14, bold=False, italic=False,
-       space_after=6, space_before=0, first_line_indent=None):
+       space_after=6, space_before=0, first_line_indent="auto"):
     para = doc.add_paragraph()
     para.alignment = align
     para.paragraph_format.space_after = Pt(space_after)
     para.paragraph_format.space_before = Pt(space_before)
     para.paragraph_format.line_spacing = 1.15
+    if first_line_indent == "auto":
+        # Đúng chuẩn văn bản hành chính (và khớp bản mẫu gốc): các đoạn căn đều (justify)
+        # được thụt đầu dòng 1cm; các dòng căn giữa (tiêu đề, quốc hiệu...) không thụt.
+        first_line_indent = 1.0 if align == WD_ALIGN_PARAGRAPH.JUSTIFY else None
     if first_line_indent:
         para.paragraph_format.first_line_indent = Cm(first_line_indent)
     if text:
@@ -347,6 +351,7 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
 
     kg = doc.add_paragraph()
     kg.paragraph_format.space_after = Pt(8)
+    kg.paragraph_format.first_line_indent = Cm(1.0)
     run_kg = kg.add_run("Kính gửi: ")
     _set_run(run_kg, italic=True)
     run_kg2 = kg.add_run("Ban Tổ chức Tỉnh ủy.")
