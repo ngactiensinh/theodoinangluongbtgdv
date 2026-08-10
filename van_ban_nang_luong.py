@@ -213,8 +213,8 @@ def la_lanh_dao(row):
     return ("TRƯỞNG BAN" in cv) or ("PHÓ TRƯỞNG BAN" in cv) or ("TRƯỞNG BAN" in cv.replace("PHÓ ", ""))
 
 
-def cau_dien_bien_luong(row, loai):
-    """Sinh câu mô tả diễn biến lương/phụ cấp cho 1 người, dùng chung cho QĐ/TT/BB."""
+def _truong_dien_bien(row):
+    """Trích xuất & định dạng các trường dữ liệu dùng chung để mô tả diễn biến lương."""
     ngach = str(row.get('ngach_luong', '') or '').strip()
     ma_ngach = str(row.get('ma_ngach', '') or '').strip()
     bac_ht = str(row.get('bac_luong', '') or '').strip()
@@ -225,7 +225,6 @@ def cau_dien_bien_luong(row, loai):
     ngay_dk = str(row.get('ngay_du_kien', '') or '').strip()
     vk_ht = str(row.get('vuot_khung_hien_tai', '') or '').strip()
     vk_moi = str(row.get('vuot_khung_moi', '') or '').strip()
-
     try:
         thang_nam_ht = datetime.strptime(ngay_ht, '%d/%m/%Y').strftime('%m/%Y')
     except Exception:
@@ -234,21 +233,46 @@ def cau_dien_bien_luong(row, loai):
         thang_nam_moi = datetime.strptime(ngay_dk, '%d/%m/%Y').strftime('%m/%Y')
     except Exception:
         thang_nam_moi = ngay_dk
+    return dict(ngach=ngach, ma_ngach=ma_ngach, bac_ht=bac_ht, hs_ht=hs_ht, ngay_ht=ngay_ht,
+                bac_moi=bac_moi, hs_moi=hs_moi, ngay_dk=ngay_dk, vk_ht=vk_ht, vk_moi=vk_moi,
+                thang_nam_ht=thang_nam_ht, thang_nam_moi=thang_nam_moi)
 
+
+def cau_dien_bien_luong(row, loai):
+    """Sinh câu mô tả diễn biến lương/phụ cấp cho 1 người (1 câu gộp) — dùng cho QĐ/TT và Biên bản nhiều người."""
+    f = _truong_dien_bien(row)
     if loai == "vuot_khung":
-        if vk_ht.lower() not in ('', 'none', 'nan'):
-            # tăng % vượt khung
-            return (f"Lương đang hưởng ngạch {ngach} (Mã số {ma_ngach}), bậc {bac_ht}, hệ số {hs_ht} "
-                    f"và hưởng phụ cấp thâm niên vượt khung {vk_ht}, kể từ ngày {ngay_ht}. "
-                    f"Nay nâng mức phụ cấp thâm niên vượt khung lên {vk_moi}, kể từ ngày {ngay_dk}.")
+        if f['vk_ht'].lower() not in ('', 'none', 'nan'):
+            return (f"Lương đang hưởng ngạch {f['ngach']} (Mã số {f['ma_ngach']}), bậc {f['bac_ht']}, hệ số {f['hs_ht']} "
+                    f"và hưởng phụ cấp thâm niên vượt khung {f['vk_ht']}, kể từ ngày {f['ngay_ht']}. "
+                    f"Nay nâng mức phụ cấp thâm niên vượt khung lên {f['vk_moi']}, kể từ ngày {f['ngay_dk']}.")
         else:
-            # vượt khung lần đầu
-            return (f"Lương đang hưởng ngạch {ngach} (Mã số {ma_ngach}) bậc {bac_ht}; hệ số {hs_ht} "
-                    f"từ tháng {thang_nam_ht}. Nay nâng phụ cấp thâm niên vượt khung lần đầu bằng {vk_moi}, "
-                    f"kể từ ngày {ngay_dk}.")
+            return (f"Lương đang hưởng ngạch {f['ngach']} (Mã số {f['ma_ngach']}) bậc {f['bac_ht']}; hệ số {f['hs_ht']} "
+                    f"từ tháng {f['thang_nam_ht']}. Nay nâng phụ cấp thâm niên vượt khung lần đầu bằng {f['vk_moi']}, "
+                    f"kể từ ngày {f['ngay_dk']}.")
     else:
-        return (f"Lương đang hưởng ngạch {ngach} (Mã số {ma_ngach}), bậc {bac_ht}, hệ số {hs_ht} "
-                f"từ tháng {thang_nam_ht}. Nâng lên bậc {bac_moi}, hệ số {hs_moi} từ tháng {thang_nam_moi}.")
+        return (f"Lương đang hưởng ngạch {f['ngach']} (Mã số {f['ma_ngach']}), bậc {f['bac_ht']}, hệ số {f['hs_ht']} "
+                f"từ tháng {f['thang_nam_ht']}. Nâng lên bậc {f['bac_moi']}, hệ số {f['hs_moi']} từ tháng {f['thang_nam_moi']}.")
+
+
+def _dien_bien_2_doan(row, loai):
+    """Như cau_dien_bien_luong nhưng tách thành 2 đoạn riêng (hiện trạng / nay nâng) —
+    dùng cho Biên bản khi chỉ có 1 người, đúng bố cục 2 đoạn của mẫu gốc."""
+    f = _truong_dien_bien(row)
+    if loai == "vuot_khung":
+        if f['vk_ht'].lower() not in ('', 'none', 'nan'):
+            doan1 = (f"Lương đang hưởng ngạch {f['ngach']} (Mã số {f['ma_ngach']}), bậc {f['bac_ht']} hệ số {f['hs_ht']} "
+                     f"và hưởng phụ cấp thâm niên vượt khung {f['vk_ht']}, kể từ ngày {f['ngay_ht']}.")
+            doan2 = f"Nay nâng mức phụ cấp thâm niên vượt khung lên {f['vk_moi']}, kể từ ngày {f['ngay_dk']}."
+        else:
+            doan1 = (f"Lương đang hưởng ngạch {f['ngach']} (Mã số {f['ma_ngach']}) bậc {f['bac_ht']}; hệ số {f['hs_ht']} "
+                     f"từ tháng {f['thang_nam_ht']}.")
+            doan2 = f"Nay nâng phụ cấp thâm niên vượt khung lần đầu bằng {f['vk_moi']}, kể từ ngày {f['ngay_dk']}."
+    else:
+        doan1 = (f"Lương đang hưởng ngạch {f['ngach']} (Mã số {f['ma_ngach']}), bậc {f['bac_ht']}, hệ số {f['hs_ht']} "
+                 f"từ tháng {f['thang_nam_ht']}.")
+        doan2 = f"Nâng lên bậc {f['bac_moi']}, hệ số {f['hs_moi']} từ tháng {f['thang_nam_moi']}."
+    return doan1, doan2
 
 
 # ═════════════════════════════════════════════════════════
@@ -383,18 +407,36 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
 
 
 # ═════════════════════════════════════════════════════════
-# 5. BIÊN BẢN HỌP HỘI ĐỒNG XÉT NÂNG LƯƠNG (gộp toàn bộ đợt)
+# 5. BIÊN BẢN HỌP HỘI ĐỒNG XÉT NÂNG LƯƠNG
+#    — mỗi biên bản CHỈ gồm 1 loại nâng lương (thường xuyên HOẶC vượt khung)
+#      và 1 nhóm đối tượng (lãnh đạo Ban trình BTC Tỉnh ủy HOẶC cán bộ thường
+#      do Trưởng Ban trực tiếp quyết định) — không trộn lẫn.
 # ═════════════════════════════════════════════════════════
-def tao_bien_ban(ds_tat_ca, ngay_hop, gio_bat_dau, gio_ket_thuc, thanh_phan_text,
+def tao_bien_ban(ds_nhom, loai, la_lanh_dao_nhom, ngay_hop, gio_bat_dau, gio_ket_thuc, thanh_phan_text,
                   truong_ban="Trần Mạnh Lợi", thu_ky="Đinh Thị Thúy",
                   dia_diem="Phòng họp Hội đồng xét nâng lương Ban Tuyên giáo và Dân vận Tỉnh ủy"):
-    """ds_tat_ca: list[dict] gồm cả cán bộ thường lẫn lãnh đạo, mỗi dict có thêm key 'loai' đã xác định."""
+    """
+    ds_nhom: list[dict] CHỈ các cán bộ CÙNG loại `loai` và CÙNG thuộc nhóm `la_lanh_dao_nhom`.
+    loai: 'thuong_xuyen' | 'vuot_khung'
+    la_lanh_dao_nhom: True nếu nhóm là Trưởng/Phó Trưởng ban (đề nghị BTC Tỉnh ủy),
+                       False nếu là cán bộ, chuyên viên khác (Trưởng Ban trực tiếp quyết định).
+    """
     doc = _new_doc()
 
-    ten_ds = "; ".join(
-        f"đồng chí {r.get('ho_ten','')}" + (f", {r.get('chuc_vu','').strip()}" if str(r.get('chuc_vu','')).strip() else "")
-        for r in ds_tat_ca
-    )
+    # Sắp xếp: lãnh đạo Ban lên trước, kế đến lãnh đạo phòng, sau cùng là chuyên viên/nhân viên khác.
+    def _thu_tu(row):
+        cv = str(row.get('chuc_vu', '') or '').upper()
+        if la_lanh_dao(row):
+            return 0
+        if 'TRƯỞNG PHÒNG' in cv:
+            return 1
+        return 2
+    ds_nhom = sorted(ds_nhom, key=_thu_tu)
+
+    hanh_dong = "nâng bậc lương thường xuyên" if loai == "thuong_xuyen" else "nâng phụ cấp thâm niên vượt khung"
+    tieu_de_2 = f"Họp xét {hanh_dong} cho cán bộ, công chức"
+    can_cu = CAN_CU_THUONG_XUYEN if loai == "thuong_xuyen" else CAN_CU_VUOT_KHUNG
+    can_cu_ngan = can_cu[len("Căn cứ "):] if can_cu.startswith("Căn cứ ") else can_cu
 
     table = doc.add_table(rows=1, cols=2)
     table.columns[0].width = Cm(7.5)
@@ -413,53 +455,86 @@ def tao_bien_ban(ds_tat_ca, ngay_hop, gio_bat_dau, gio_ket_thuc, thanh_phan_text
     _set_run(p2.add_run("*"), size=14)
     pr0 = right.paragraphs[0]
     pr0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _set_run(pr0.add_run("ĐẢNG CỘNG SẢN VIỆT NAM"), size=14, bold=True)
+    pr1 = right.add_paragraph()
+    pr1.alignment = WD_ALIGN_PARAGRAPH.CENTER
     try:
         ngay_dt = datetime.strptime(ngay_hop, '%d/%m/%Y')
         ngay_s, thang_s, nam_s = ngay_dt.strftime('%d'), ngay_dt.strftime('%m'), ngay_dt.strftime('%Y')
     except Exception:
         ngay_s, thang_s, nam_s = ngay_hop, "", ""
-    _set_run(pr0.add_run(f"Tuyên Quang, ngày {ngay_s} tháng {thang_s} năm {nam_s}"), size=14, italic=True)
+    _set_run(pr1.add_run(f"Tuyên Quang, ngày {ngay_s} tháng {thang_s} năm {nam_s}"), size=14, italic=True)
+    nam_truoc = str(int(nam_s) - 1) if nam_s else ""
 
     doc.add_paragraph()
-    _tieu_de_van_ban(doc, "BIÊN BẢN", "Họp xét nâng lương, nâng phụ cấp thâm niên vượt khung cho cán bộ, công chức")
+    _tieu_de_van_ban(doc, "BIÊN BẢN", tieu_de_2)
 
-    _p(doc, f"Vào hồi {gio_bat_dau} phút, ngày {ngay_hop} tại {dia_diem} họp xét nâng lương, nâng phụ cấp "
-            f"thâm niên vượt khung cho {len(ds_tat_ca):02d} công chức, gồm: {ten_ds}.")
+    # ── Đoạn mở đầu ─────────────────────────────
+    if len(ds_nhom) == 1:
+        r0 = ds_nhom[0]
+        ho_ten0 = str(r0.get('ho_ten', ''))
+        chuc_vu0 = str(r0.get('chuc_vu', '') or '').strip()
+        _p(doc, f"Vào hồi {gio_bat_dau} phút, ngày {ngay_hop} tại {dia_diem} họp xét {hanh_dong} cho "
+                f"đồng chí {ho_ten0}" + (f", {chuc_vu0}." if chuc_vu0 else "."))
+    else:
+        ten_ds = "; ".join(
+            f"đồng chí {r.get('ho_ten','')}" + (f", {r.get('chuc_vu','').strip()}" if str(r.get('chuc_vu','')).strip() else "")
+            for r in ds_nhom
+        )
+        _p(doc, f"Vào hồi {gio_bat_dau} phút, ngày {ngay_hop} tại {dia_diem} họp xét {hanh_dong} cho "
+                f"{len(ds_nhom):02d} công chức, gồm: {ten_ds}.")
 
     _p(doc, "I - THÀNH PHẦN", bold=True, space_after=6)
     for line in [l.strip() for l in thanh_phan_text.split("\n") if l.strip()]:
         prefix = "" if line.startswith("-") or line.startswith("Đồng chí") or line.startswith("Đ/c") else "- "
         _p(doc, f"{prefix}{line}" if not line.startswith("-") else line, space_after=4)
 
+    # ── Nội dung ─────────────────────────────
     _p(doc, "II- NỘI DUNG", bold=True, space_after=6)
     p1 = _p(doc, "")
     r1 = p1.add_run("1. ")
     _set_run(r1, bold=True)
-    r1b = p1.add_run("Đồng chí chủ trì thông qua các căn cứ pháp lý về chế độ nâng bậc lương thường xuyên, "
-                      "nâng phụ cấp thâm niên vượt khung đối với cán bộ, công chức, viên chức và người lao động;")
+    r1b = p1.add_run(f"Đồng chí chủ trì thông qua {can_cu_ngan}")
     _set_run(r1b)
 
+    doi_tuong_txt = (f"của đồng chí {ds_nhom[0].get('ho_ten','')}" if len(ds_nhom) == 1
+                      else "của các đồng chí có tên trên")
     p2 = _p(doc, "")
     r2 = p2.add_run("2. ")
     _set_run(r2, bold=True)
-    r2b = p2.add_run("Hội đồng tiến hành rà soát tiêu chuẩn, điều kiện nâng lương, nâng phụ cấp thâm niên vượt "
-                      f"khung, đối chiếu với kết quả nhận xét, đánh giá cán bộ năm {int(nam_s)-1 if nam_s else ''} "
-                      "của các đồng chí có tên trên.")
+    r2b = p2.add_run(f"Hội đồng tiến hành rà soát tiêu chuẩn, điều kiện {hanh_dong}, đồng thời đối chiếu với "
+                      f"kết quả nhận xét, đánh giá cán bộ năm {nam_truoc} {doi_tuong_txt}.")
     _set_run(r2b)
 
-    _p(doc, "Sau khi thảo luận, xem xét, Hội đồng xét nâng lương Ban Tuyên giáo và Dân vận Tỉnh ủy biểu quyết "
-            "thống nhất như sau:")
+    ket_luan_dau = ("Hội đồng xét nâng lương Ban Tuyên giáo và Dân vận Tỉnh ủy biểu quyết thống nhất đề nghị "
+                     "Ban Tổ chức Tỉnh ủy thẩm định, trình Thường trực Tỉnh ủy xem xét, Quyết định"
+                     if la_lanh_dao_nhom else
+                     "Hội đồng xét nâng lương Ban Tuyên giáo và Dân vận Tỉnh ủy biểu quyết thống nhất đề nghị "
+                     "Trưởng Ban Quyết định")
 
-    for i, r in enumerate(ds_tat_ca, 1):
-        loai = r.get('loai') or xac_dinh_loai_nang_luong(r)
-        ho_ten = str(r.get('ho_ten', ''))
-        chuc_vu = str(r.get('chuc_vu', '') or '').strip()
-        p = _p(doc, "", space_after=6)
-        rn = p.add_run(f"{i}. ")
-        _set_run(rn, bold=True)
-        rb = p.add_run(f"Đồng chí {ho_ten}" + (f", {chuc_vu}" if chuc_vu else "") + ". "
-                        + cau_dien_bien_luong(r, loai))
-        _set_run(rb)
+    if len(ds_nhom) == 1:
+        r0 = ds_nhom[0]
+        ho_ten0 = str(r0.get('ho_ten', ''))
+        chuc_vu0 = str(r0.get('chuc_vu', '') or '').strip()
+        loai0 = r0.get('loai') or loai
+        _p(doc, f"Sau khi thảo luận, xem xét, {ket_luan_dau} {hanh_dong} cho đồng chí {ho_ten0}"
+                + (f", {chuc_vu0}" if chuc_vu0 else "") + ", cụ thể như sau:")
+        doan1, doan2 = _dien_bien_2_doan(r0, loai0)
+        _p(doc, doan1)
+        _p(doc, doan2)
+    else:
+        _p(doc, f"Sau khi thảo luận, xem xét, {ket_luan_dau} {hanh_dong} cho các đồng chí có tên sau, "
+                f"cụ thể như sau:")
+        for i, r in enumerate(ds_nhom, 1):
+            loai_r = r.get('loai') or loai
+            ho_ten = str(r.get('ho_ten', ''))
+            chuc_vu = str(r.get('chuc_vu', '') or '').strip()
+            p = _p(doc, "", space_after=6)
+            rn = p.add_run(f"{i}. ")
+            _set_run(rn, bold=True)
+            rb = p.add_run(f"Đồng chí {ho_ten}" + (f", {chuc_vu}" if chuc_vu else "") + ". "
+                            + cau_dien_bien_luong(r, loai_r))
+            _set_run(rb)
 
     _p(doc, f"Cuộc họp kết thúc vào hồi {gio_ket_thuc} phút cùng ngày. Biên bản đã được thông qua trước Hội đồng "
             "và được 100% thành viên nhất trí.")
