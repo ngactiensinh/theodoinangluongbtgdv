@@ -40,6 +40,17 @@ CAN_CU_CONG_VAN_BTC = "Căn cứ Công văn số 588-CV/BTCTU, ngày 10/12/2025 
 THANG_LA = {1:"một",2:"hai",3:"ba",4:"tư",5:"năm",6:"sáu",7:"bảy",8:"tám",9:"chín",10:"mười",11:"mười một",12:"mười hai"}
 
 
+def _dinh_dang_thang(thang):
+    """Theo thể thức văn bản hành chính: tháng 1, 2 viết thêm số 0 phía trước (01, 02);
+    các tháng còn lại (3-12) không thêm số 0."""
+    try:
+        t = int(str(thang).strip())
+    except (TypeError, ValueError):
+        return str(thang).strip()
+    return f"{t:02d}" if t in (1, 2) else str(t)
+
+
+
 # ═════════════════════════════════════════════════════════
 # 1. TIỆN ÍCH CHUNG
 # ═════════════════════════════════════════════════════════
@@ -146,7 +157,7 @@ def _quoc_hieu(doc, dong1_trai, dong2_trai_bold, ngay_ky, thang_ky, nam_ky, so_h
         _cell_p(left, so_hieu)
 
     _cell_p(right, "ĐẢNG CỘNG SẢN VIỆT NAM", bold=True, first=True)
-    _cell_p(right, f"Tuyên Quang, ngày {ngay_ky} tháng {thang_ky} năm {nam_ky}", italic=True)
+    _cell_p(right, f"Tuyên Quang, ngày {ngay_ky} tháng {_dinh_dang_thang(thang_ky)} năm {nam_ky}", italic=True)
     return table
 
 
@@ -167,12 +178,16 @@ def _khoi_ky_ten(doc, noi_nhan_list, chuc_danh_ky, ten_nguoi_ky):
     right = table.cell(0, 1)
 
     p0 = left.paragraphs[0]
-    p0.paragraph_format.space_after = Pt(2)
+    p0.paragraph_format.space_after = Pt(0)
+    p0.paragraph_format.space_before = Pt(0)
+    p0.paragraph_format.line_spacing = 1.0
     run0 = p0.add_run("Nơi nhận:")
     _set_run(run0, size=13, italic=False, underline=True)
     for item in noi_nhan_list:
         p = left.add_paragraph(f"- {item}")
-        p.paragraph_format.space_after = Pt(2)
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.line_spacing = 1.0
         for r in p.runs:
             _set_run(r, size=13)
 
@@ -230,11 +245,13 @@ def _truong_dien_bien(row):
     vk_ht = str(row.get('vuot_khung_hien_tai', '') or '').strip()
     vk_moi = str(row.get('vuot_khung_moi', '') or '').strip()
     try:
-        thang_nam_ht = datetime.strptime(ngay_ht, '%d/%m/%Y').strftime('%m/%Y')
+        dt_ht = datetime.strptime(ngay_ht, '%d/%m/%Y')
+        thang_nam_ht = f"{_dinh_dang_thang(dt_ht.month)}/{dt_ht.year}"
     except Exception:
         thang_nam_ht = ngay_ht
     try:
-        thang_nam_moi = datetime.strptime(ngay_dk, '%d/%m/%Y').strftime('%m/%Y')
+        dt_dk = datetime.strptime(ngay_dk, '%d/%m/%Y')
+        thang_nam_moi = f"{_dinh_dang_thang(dt_dk.month)}/{dt_dk.year}"
     except Exception:
         thang_nam_moi = ngay_dk
     return dict(ngach=ngach, ma_ngach=ma_ngach, bac_ht=bac_ht, hs_ht=hs_ht, ngay_ht=ngay_ht,
@@ -330,7 +347,7 @@ def tao_quyet_dinh(r, loai, so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb,
     _set_run(run2)
     doc.add_paragraph()
 
-    noi_nhan = ["Như điều 2,", "Kế toán Ban,", "Hồ sơ cán bộ,", "Lưu Ban Tuyên giáo và Dân vận Tỉnh ủy."]
+    noi_nhan = ["Như điều 2;", "Kế toán Ban;", "Hồ sơ cán bộ;", "Lưu Ban Tuyên giáo và Dân vận Tỉnh ủy."]
     _khoi_ky_ten(doc, noi_nhan, "TRƯỞNG BAN", truong_ban)
     return _save(doc)
 
@@ -389,7 +406,7 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
             "xem xét, quyết định.")
     doc.add_paragraph()
 
-    noi_nhan = ["Như kính gửi,", "Lãnh đạo Ban,", "Lưu Ban Tuyên giáo và Dân vận Tỉnh ủy."]
+    noi_nhan = ["Như kính gửi;", "Lãnh đạo Ban;", "Lưu Ban Tuyên giáo và Dân vận Tỉnh ủy."]
     _khoi_ky_ten(doc, noi_nhan, "TRƯỞNG BAN", truong_ban)
     return _save(doc)
 
@@ -451,7 +468,7 @@ def tao_bien_ban(ds_nhom, loai, la_lanh_dao_nhom, ngay_hop, gio_bat_dau, gio_ket
         ngay_s, thang_s, nam_s = ngay_dt.strftime('%d'), ngay_dt.strftime('%m'), ngay_dt.strftime('%Y')
     except Exception:
         ngay_s, thang_s, nam_s = ngay_hop, "", ""
-    _set_run(pr1.add_run(f"Tuyên Quang, ngày {ngay_s} tháng {thang_s} năm {nam_s}"), size=14, italic=True)
+    _set_run(pr1.add_run(f"Tuyên Quang, ngày {ngay_s} tháng {_dinh_dang_thang(thang_s) if thang_s else thang_s} năm {nam_s}"), size=14, italic=True)
     nam_truoc = str(int(nam_s) - 1) if nam_s else ""
 
     doc.add_paragraph()
@@ -472,10 +489,10 @@ def tao_bien_ban(ds_nhom, loai, la_lanh_dao_nhom, ngay_hop, gio_bat_dau, gio_ket
         _p(doc, f"Vào hồi {gio_bat_dau} phút, ngày {ngay_hop} tại {dia_diem} họp xét {hanh_dong} cho "
                 f"{len(ds_nhom):02d} công chức, gồm: {ten_ds}.")
 
-    _p(doc, "I - THÀNH PHẦN", bold=True, space_after=6)
+    _p(doc, "I- THÀNH PHẦN", bold=True, space_after=6)
     for line in [l.strip() for l in thanh_phan_text.split("\n") if l.strip()]:
-        prefix = "" if line.startswith("-") or line.startswith("Đồng chí") or line.startswith("Đ/c") else "- "
-        _p(doc, f"{prefix}{line}" if not line.startswith("-") else line, space_after=4)
+        line_khong_gach = line[1:].strip() if line.startswith("-") else line
+        _p(doc, f"- {line_khong_gach}", space_after=4)
 
     # ── Nội dung ─────────────────────────────
     _p(doc, "II- NỘI DUNG", bold=True, space_after=6)
