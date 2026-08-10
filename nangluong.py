@@ -711,16 +711,11 @@ def main():
 
                     st.markdown("<hr class='divider'>", unsafe_allow_html=True)
 
+                    st.caption("💡 Nếu Ban ký số/cấp số điện tử, có thể để trống Số Quyết định / Số Tờ trình — "
+                               "văn bản sẽ để chỗ trống (Số ......../...) để hệ thống ký số điền sau.")
+
                     if st.button("📄  Tạo văn bản", type="primary", use_container_width=True):
-                        loi = []
-                        if not so_qd and (nhom_qd_tx or nhom_qd_vk):
-                            loi.append("Vui lòng nhập Số Quyết định.")
-                        if not so_tt and (nhom_tt_tx or nhom_tt_vk):
-                            loi.append("Vui lòng nhập Số Tờ trình.")
-                        if loi:
-                            for l in loi:
-                                st.error(f"⚠️ {l}")
-                        else:
+                        if True:
                             files = {}
                             if nhom_qd_tx:
                                 files[f"QuyetDinh_ThuongXuyen_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_quyet_dinh(
