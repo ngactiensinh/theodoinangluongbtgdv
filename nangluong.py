@@ -734,18 +734,27 @@ def main():
                             if nhom_qd_tx:
                                 files[f"QuyetDinh_ThuongXuyen_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_quyet_dinh(
                                     nhom_qd_tx, "thuong_xuyen", so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                                files[f"BienBan_ThuongXuyen_CBCC_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                    nhom_qd_tx, "thuong_xuyen", False, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
+                                    thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
                             if nhom_qd_vk:
                                 files[f"QuyetDinh_VuotKhung_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_quyet_dinh(
                                     nhom_qd_vk, "vuot_khung", so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                                files[f"BienBan_VuotKhung_CBCC_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                    nhom_qd_vk, "vuot_khung", False, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
+                                    thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
                             if nhom_tt_tx:
                                 files[f"ToTrinh_ThuongXuyen_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_to_trinh(
                                     nhom_tt_tx, "thuong_xuyen", so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                                files[f"BienBan_ThuongXuyen_LanhDao_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                    nhom_tt_tx, "thuong_xuyen", True, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
+                                    thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
                             if nhom_tt_vk:
                                 files[f"ToTrinh_VuotKhung_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_to_trinh(
                                     nhom_tt_vk, "vuot_khung", so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
-                            files[f"BienBan_HopXetNangLuong_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
-                                ds_rows_full, ngay_hop_bb, gio_bat_dau, gio_ket_thuc, thanh_phan_text,
-                                truong_ban=truong_ban, thu_ky=thu_ky)
+                                files[f"BienBan_VuotKhung_LanhDao_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
+                                    nhom_tt_vk, "vuot_khung", True, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
+                                    thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
 
                             st.success(f"✅ Đã tạo {len(files)} văn bản. Tải về bên dưới:")
                             cols_dl = st.columns(len(files))
