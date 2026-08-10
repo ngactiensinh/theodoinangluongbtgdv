@@ -727,19 +727,34 @@ def main():
 
                     st.caption("💡 Nếu Ban ký số/cấp số điện tử, có thể để trống Số Quyết định / Số Tờ trình — "
                                "văn bản sẽ để chỗ trống (Số ......../...) để hệ thống ký số điền sau.")
+                    tong_so_qd = len(nhom_qd_tx) + len(nhom_qd_vk)
+                    if tong_so_qd > 1:
+                        st.caption(f"ℹ️ Đợt này có **{tong_so_qd} Quyết định riêng** (mỗi công chức 1 Quyết định). "
+                                   "Do mỗi Quyết định phải có số hiệu riêng biệt, ô 'Số Quyết định' sẽ được để "
+                                   "trống cho toàn bộ đợt này — nhờ hệ thống ký số điền số cho từng Quyết định.")
+
+                    def _slug_ten(ten):
+                        return str(ten).strip().replace(" ", "_")
 
                     if st.button("📄  Tạo văn bản", type="primary", use_container_width=True):
                         if True:
                             files = {}
+                            so_qd_dung = so_qd if tong_so_qd <= 1 else ""
+
+                            for r in nhom_qd_tx:
+                                fname = f"QuyetDinh_ThuongXuyen_{_slug_ten(r['ho_ten'])}_{datetime.now().strftime('%Y%m%d')}.docx"
+                                files[fname] = tao_quyet_dinh(
+                                    r, "thuong_xuyen", so_qd_dung, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+                            for r in nhom_qd_vk:
+                                fname = f"QuyetDinh_VuotKhung_{_slug_ten(r['ho_ten'])}_{datetime.now().strftime('%Y%m%d')}.docx"
+                                files[fname] = tao_quyet_dinh(
+                                    r, "vuot_khung", so_qd_dung, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
+
                             if nhom_qd_tx:
-                                files[f"QuyetDinh_ThuongXuyen_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_quyet_dinh(
-                                    nhom_qd_tx, "thuong_xuyen", so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
                                 files[f"BienBan_ThuongXuyen_CBCC_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
                                     nhom_qd_tx, "thuong_xuyen", False, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
                                     thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
                             if nhom_qd_vk:
-                                files[f"QuyetDinh_VuotKhung_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_quyet_dinh(
-                                    nhom_qd_vk, "vuot_khung", so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb, truong_ban)
                                 files[f"BienBan_VuotKhung_CBCC_{datetime.now().strftime('%Y%m%d')}.docx"] = tao_bien_ban(
                                     nhom_qd_vk, "vuot_khung", False, ngay_hop_bb, gio_bat_dau, gio_ket_thuc,
                                     thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
@@ -757,9 +772,9 @@ def main():
                                     thanh_phan_text, truong_ban=truong_ban, thu_ky=thu_ky)
 
                             st.success(f"✅ Đã tạo {len(files)} văn bản. Tải về bên dưới:")
-                            cols_dl = st.columns(len(files))
+                            cols_dl = st.columns(min(len(files), 4))
                             for i, (fname, fdata) in enumerate(files.items()):
-                                with cols_dl[i]:
+                                with cols_dl[i % len(cols_dl)]:
                                     st.download_button(
                                         f"📥 {fname}", fdata, file_name=fname,
                                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
