@@ -362,7 +362,7 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
         else "V/v đề nghị nâng phụ cấp thâm niên vượt khung"
 
     _quoc_hieu(doc, "TỈNH ỦY TUYÊN QUANG", "BAN TUYÊN GIÁO VÀ DÂN VẬN", ngay_ky, thang_ky, nam_ky,
-               so_hieu=f"Số {so_tt}-TTr/BTGDV")
+               so_hieu=f"Số {so_tt}-TTr/BTGDVTU")
     doc.add_paragraph()
     _tieu_de_van_ban(doc, "TỜ TRÌNH", tieu_de_1)
 
