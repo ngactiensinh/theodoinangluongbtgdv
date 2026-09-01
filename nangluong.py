@@ -107,7 +107,7 @@ with st.sidebar:
     <div style="text-align:center; margin-bottom:20px;">
         <div style="font-size:48px;">⭐</div>
         <div style="font-size:14px; font-weight:700; opacity:.9; line-height:1.4;">
-            BAN TUYÊN GIÁO<br>& DÂN VẬN
+            BAN TUYÊN GIÁO
         </div>
         <div style="font-size:11px; opacity:.6; margin-top:4px;">Tỉnh ủy Tuyên Quang</div>
     </div>
