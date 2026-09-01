@@ -149,7 +149,7 @@ st.markdown(f"""
     <div class="hero-icon">📊</div>
     <div>
         <div class="hero-title">HỆ THỐNG QUẢN LÝ LƯƠNG 4.0</div>
-        <div class="hero-sub">Ban Tuyên giáo và Dân vận – Tỉnh ủy Tuyên Quang</div>
+        <div class="hero-sub">Ban Tuyên giáo – Tỉnh ủy Tuyên Quang</div>
     </div>
     <div class="hero-badge">{role_label}</div>
 </div>
@@ -286,7 +286,7 @@ def tao_file_word_dien_bien(df, thang_chon="Tất cả", nam_chon="Tất cả"):
     cl = table_h.cell(0, 0).paragraphs[0]
     cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
     cl.add_run("TỈNH UỶ TUYÊN QUANG\n").bold = True
-    cl.add_run("BAN TUYÊN GIÁO VÀ DÂN VẬN\n").bold = True
+    cl.add_run("BAN TUYÊN GIÁO\n").bold = True
     cl.add_run("*")
     cr = table_h.cell(0, 1).paragraphs[0]
     cr.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -299,7 +299,7 @@ def tao_file_word_dien_bien(df, thang_chon="Tất cả", nam_chon="Tất cả"):
     run_t.font.size = Pt(14)
     txt_thang = thang_chon if thang_chon != "Tất cả" else datetime.now().strftime('%m')
     txt_nam   = nam_chon   if nam_chon   != "Tất cả" else datetime.now().strftime('%Y')
-    p_t.add_run(f"Ban Tuyên giáo và Dân vận Tỉnh uỷ tháng {txt_thang} năm {txt_nam}").italic = True
+    p_t.add_run(f"Ban Tuyên giáo Tỉnh uỷ tháng {txt_thang} năm {txt_nam}").italic = True
 
     table = doc.add_table(rows=1, cols=11)
     table.style = 'Table Grid'
@@ -703,8 +703,8 @@ def main():
 
                     st.markdown("##### ⚙️ Thông tin chung của đợt xét nâng lương")
                     cA, cB, cC = st.columns(3)
-                    so_qd = cA.text_input("Số Quyết định (không gồm '     -QĐ/BTGDVTU')", value="")
-                    so_tt = cB.text_input("Số Tờ trình (không gồm '       -TTr/BTGDVTU')", value="")
+                    so_qd = cA.text_input("Số Quyết định (không gồm '     -QĐ/BTGTU')", value="")
+                    so_tt = cB.text_input("Số Tờ trình (không gồm '       -TTr/BTGTU')", value="")
                     ngay_hop_bb = cC.text_input("Ngày họp Hội đồng (dd/mm/yyyy)", value=datetime.now().strftime("%d/%m/%Y"))
 
                     cD, cE, cF = st.columns(3)
