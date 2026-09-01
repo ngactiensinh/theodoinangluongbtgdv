@@ -18,7 +18,7 @@ from docx.oxml import OxmlElement
 # ─────────────────────────────────────────────────────────
 # THÀNH PHẦN HỘI ĐỒNG MẶC ĐỊNH (có thể chỉnh sửa trên giao diện)
 # ─────────────────────────────────────────────────────────
-THANH_PHAN_HOI_DONG_MAC_DINH = """Đồng chí Trần Mạnh Lợi, Ủy viên Ban Thường vụ, Trưởng Ban – Chủ tịch Hội đồng xét nâng lương Ban Tuyên giáo và Dân vận Tỉnh ủy – Chủ trì.
+THANH_PHAN_HOI_DONG_MAC_DINH = """Đồng chí Trần Mạnh Lợi, Ủy viên Ban Thường vụ, Trưởng Ban – Chủ tịch Hội đồng xét nâng lương Ban Tuyên giáo Tỉnh ủy – Chủ trì.
 Đồng chí Nguyễn Lam Sơn, Tỉnh ủy viên, Phó Trưởng ban Thường trực.
 Đồng chí Lê Mạnh Cường, Phó Trưởng ban.
 Đồng chí Nguyễn Văn Hưng, Phó Trưởng ban.
@@ -28,8 +28,6 @@ THANH_PHAN_HOI_DONG_MAC_DINH = """Đồng chí Trần Mạnh Lợi, Ủy viên B
 Đồng chí Đặng Ái Xoan, Phó Trưởng ban.
 Đồng chí Nguyễn Thu Vân, Trưởng phòng Tuyên truyền, Báo chí - Xuất bản.
 Đồng chí Phan Thanh Bình, Trưởng phòng Khoa giáo, Văn hóa - Văn nghệ.
-Đồng chí Trần Văn Mạnh, Trưởng phòng Đoàn thể và các Hội.
-Đồng chí Trần Thị Thanh Huyền, Trưởng phòng Dân vận các cơ quan nhà nước, Dân tộc và Tôn giáo.
 Đồng chí Đinh Thị Thúy, Chánh văn phòng Ban - Thư ký"""
 
 CAN_CU_THUONG_XUYEN = "Căn cứ Thông tư số 08/2013/TT-BNV ngày 31/7/2013 của Bộ Nội vụ về Hướng dẫn thực hiện chế độ nâng lương thường xuyên và nâng lương trước thời hạn đối với cán bộ, công chức, viên chức và người lao động;"
@@ -310,7 +308,7 @@ def tao_quyet_dinh(r, loai, so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb,
     tieu_de_1 = "nâng lương thường xuyên đối với công chức" if loai == "thuong_xuyen" \
         else "nâng phụ cấp thâm niên vượt khung đối với công chức"
 
-    _quoc_hieu(doc, "TỈNH UỶ TUYÊN QUANG", "BAN TUYÊN GIÁO VÀ DÂN VẬN", ngay_ky, thang_ky, nam_ky,
+    _quoc_hieu(doc, "TỈNH UỶ TUYÊN QUANG", "BAN TUYÊN GIÁO", ngay_ky, thang_ky, nam_ky,
                so_hieu=f"Số {so_qd}-QĐ/BTGDVTU")
     doc.add_paragraph()
     _tieu_de_van_ban(doc, "QUYẾT ĐỊNH", tieu_de_1)
@@ -319,11 +317,11 @@ def tao_quyet_dinh(r, loai, so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb,
     _p(doc, can_cu)
     _p(doc, CAN_CU_PHAN_CAP)
     _p(doc, f"Căn cứ Biên bản cuộc họp ngày {ngay_hop_bb} của Hội đồng xét nâng bậc lương cơ quan "
-            f"Ban Tuyên giáo và Dân vận Tỉnh ủy;")
+            f"Ban Tuyên giáo Tỉnh ủy;")
     _p(doc, "Xét đề nghị của Chánh Văn phòng Ban.")
     doc.add_paragraph()
 
-    _p(doc, "BAN TUYÊN GIÁO VÀ DÂN VẬN TỈNH UỶ", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, space_after=0)
+    _p(doc, "BAN TUYÊN GIÁO TỈNH UỶ", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, space_after=0)
     _p(doc, "QUYẾT ĐỊNH", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, space_after=10)
 
     ho_ten = str(r.get('ho_ten', ''))
@@ -347,7 +345,7 @@ def tao_quyet_dinh(r, loai, so_qd, ngay_ky, thang_ky, nam_ky, ngay_hop_bb,
     _set_run(run2)
     doc.add_paragraph()
 
-    noi_nhan = ["Như điều 2;", "Kế toán Ban;", "Hồ sơ cán bộ;", "Lưu Ban Tuyên giáo và Dân vận Tỉnh ủy."]
+    noi_nhan = ["Như điều 2;", "Kế toán Ban;", "Hồ sơ cán bộ;", "Lưu Ban Tuyên giáo Tỉnh ủy."]
     _khoi_ky_ten(doc, noi_nhan, "TRƯỞNG BAN", truong_ban)
     return _save(doc)
 
@@ -361,7 +359,7 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
     tieu_de_1 = "V/v đề nghị nâng bậc lương thường xuyên" if loai == "thuong_xuyen" \
         else "V/v đề nghị nâng phụ cấp thâm niên vượt khung"
 
-    _quoc_hieu(doc, "TỈNH ỦY TUYÊN QUANG", "BAN TUYÊN GIÁO VÀ DÂN VẬN", ngay_ky, thang_ky, nam_ky,
+    _quoc_hieu(doc, "TỈNH ỦY TUYÊN QUANG", "BAN TUYÊN GIÁO", ngay_ky, thang_ky, nam_ky,
                so_hieu=f"Số {so_tt}-TTr/BTGDVTU")
     doc.add_paragraph()
     _tieu_de_van_ban(doc, "TỜ TRÌNH", tieu_de_1)
@@ -378,19 +376,19 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
     doan1 = f"{can_cu} {CAN_CU_PHAN_CAP} {CAN_CU_CONG_VAN_BTC}"
     _p(doc, doan1)
     _p(doc, f"Căn cứ kết quả đánh giá xếp loại cán bộ, công chức năm {int(nam_ky)-1}; Biên bản cuộc họp Hội đồng "
-            f"xét nâng lương của Ban Tuyên giáo và Dân vận Tỉnh ủy ngày {ngay_hop_bb};")
+            f"xét nâng lương của Ban Tuyên giáo Tỉnh ủy ngày {ngay_hop_bb};")
 
     nhan_dong = "nâng bậc lương thường xuyên" if loai == "thuong_xuyen" else "nâng phụ cấp thâm niên vượt khung"
     if len(ds_lanh_dao) == 1:
         r = ds_lanh_dao[0]
         ho_ten = str(r.get('ho_ten', ''))
         chuc_vu = str(r.get('chuc_vu', '') or '').strip()
-        _p(doc, f"Ban Tuyên giáo và Dân vận Tỉnh ủy đề nghị Ban Tổ chức Tỉnh ủy thẩm định, trình Thường trực "
+        _p(doc, f"Ban Tuyên giáo Tỉnh ủy đề nghị Ban Tổ chức Tỉnh ủy thẩm định, trình Thường trực "
                 f"Tỉnh ủy xem xét Quyết định {nhan_dong} cho đồng chí {ho_ten}"
                 + (f", {chuc_vu}" if chuc_vu else "") + ".")
         _p(doc, cau_dien_bien_luong(r, loai))
     else:
-        _p(doc, f"Ban Tuyên giáo và Dân vận Tỉnh ủy đề nghị Ban Tổ chức Tỉnh ủy thẩm định, trình Thường trực "
+        _p(doc, f"Ban Tuyên giáo Tỉnh ủy đề nghị Ban Tổ chức Tỉnh ủy thẩm định, trình Thường trực "
                 f"Tỉnh ủy xem xét, Quyết định {nhan_dong} cho các đồng chí có tên sau:")
         for i, r in enumerate(ds_lanh_dao, 1):
             ho_ten = str(r.get('ho_ten', ''))
@@ -402,11 +400,11 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
 
     ghi_chu = _p(doc, "(Có Biên bản họp xét kèm theo)",
                  align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, space_after=8)
-    _p(doc, "Ban Tuyên giáo và Dân vận Tỉnh ủy trân trọng đề nghị Ban Tổ chức Tỉnh ủy trình Thường trực Tỉnh ủy "
+    _p(doc, "Ban Tuyên giáo Tỉnh ủy trân trọng đề nghị Ban Tổ chức Tỉnh ủy trình Thường trực Tỉnh ủy "
             "xem xét, quyết định.")
     doc.add_paragraph()
 
-    noi_nhan = ["Như kính gửi;", "Lãnh đạo Ban;", "Lưu Ban Tuyên giáo và Dân vận Tỉnh ủy."]
+    noi_nhan = ["Như kính gửi;", "Lãnh đạo Ban;", "Lưu Ban Tuyên giáo Tỉnh ủy."]
     _khoi_ky_ten(doc, noi_nhan, "TRƯỞNG BAN", truong_ban)
     return _save(doc)
 
@@ -419,7 +417,7 @@ def tao_to_trinh(ds_lanh_dao, loai, so_tt, ngay_ky, thang_ky, nam_ky, ngay_hop_b
 # ═════════════════════════════════════════════════════════
 def tao_bien_ban(ds_nhom, loai, la_lanh_dao_nhom, ngay_hop, gio_bat_dau, gio_ket_thuc, thanh_phan_text,
                   truong_ban="Trần Mạnh Lợi", thu_ky="Đinh Thị Thúy",
-                  dia_diem="Phòng họp Hội đồng xét nâng lương Ban Tuyên giáo và Dân vận Tỉnh ủy"):
+                  dia_diem="Phòng họp Hội đồng xét nâng lương Ban Tuyên giáo Tỉnh ủy"):
     """
     ds_nhom: list[dict] CHỈ các cán bộ CÙNG loại `loai` và CÙNG thuộc nhóm `la_lanh_dao_nhom`.
     loai: 'thuong_xuyen' | 'vuot_khung'
@@ -454,7 +452,7 @@ def tao_bien_ban(ds_nhom, loai, la_lanh_dao_nhom, ngay_hop, gio_bat_dau, gio_ket
     _set_run(p0.add_run("TỈNH ỦY TUYÊN QUANG"), size=14)
     p1 = left.add_paragraph()
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    _set_run(p1.add_run("BAN TUYÊN GIÁO VÀ DÂN VẬN"), size=14, bold=True)
+    _set_run(p1.add_run("BAN TUYÊN GIÁO"), size=14, bold=True)
     p2 = left.add_paragraph()
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
     _set_run(p2.add_run("*"), size=14)
@@ -511,10 +509,10 @@ def tao_bien_ban(ds_nhom, loai, la_lanh_dao_nhom, ngay_hop, gio_bat_dau, gio_ket
                       f"kết quả nhận xét, đánh giá cán bộ năm {nam_truoc} {doi_tuong_txt}.")
     _set_run(r2b)
 
-    ket_luan_dau = ("Hội đồng xét nâng lương Ban Tuyên giáo và Dân vận Tỉnh ủy biểu quyết thống nhất đề nghị "
+    ket_luan_dau = ("Hội đồng xét nâng lương Ban Tuyên giáo Tỉnh ủy biểu quyết thống nhất đề nghị "
                      "Ban Tổ chức Tỉnh ủy thẩm định, trình Thường trực Tỉnh ủy xem xét, Quyết định"
                      if la_lanh_dao_nhom else
-                     "Hội đồng xét nâng lương Ban Tuyên giáo và Dân vận Tỉnh ủy biểu quyết thống nhất đề nghị "
+                     "Hội đồng xét nâng lương Ban Tuyên giáo Tỉnh ủy biểu quyết thống nhất đề nghị "
                      "Trưởng Ban Quyết định")
 
     if len(ds_nhom) == 1:
