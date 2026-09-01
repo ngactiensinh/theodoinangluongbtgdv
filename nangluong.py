@@ -428,6 +428,28 @@ def main():
                                 st.rerun()
                             else:
                                 st.error("⚠️ Vui lòng điền Tên và Ngày nâng lương!")
+
+            # --- CẢNH BÁO CHÊNH LỆCH SỐ BẢN GHI (chỉ admin) ---
+            if st.session_state.role == "admin":
+                so_ban_ghi_tho = len(df_base)
+                so_bi_an = so_ban_ghi_tho - len(df_calculated)
+                if so_bi_an > 0:
+                    mask_thieu_ten = df_base['ho_ten'].astype(str).str.strip() == "" if 'ho_ten' in df_base.columns else pd.Series([], dtype=bool)
+                    ds_thieu = df_base[mask_thieu_ten] if 'ho_ten' in df_base.columns else pd.DataFrame()
+                    chi_tiet = ""
+                    if not ds_thieu.empty:
+                        cols_hien = [c for c in ['ma_ngach', 'chuc_vu', 'ngay_gan_nhat'] if c in ds_thieu.columns]
+                        dong_info = []
+                        for _, r in ds_thieu.iterrows():
+                            info = ", ".join(f"{c}: {r[c]}" for c in cols_hien if str(r.get(c, '')).strip())
+                            dong_info.append(f"— bản ghi có id={r.get('id','?')}" + (f" ({info})" if info else " (không có dữ liệu khác)"))
+                        chi_tiet = "\n" + "\n".join(dong_info)
+                    st.warning(
+                        f"⚠️ CSDL có **{so_ban_ghi_tho}** bản ghi nhưng chỉ **{len(df_calculated)}** bản ghi có **Họ và tên** "
+                        f"hợp lệ nên được tính vào thống kê — **{so_bi_an}** bản ghi bị ẩn do thiếu Họ và tên (khoảng trắng "
+                        f"hoặc để trống). Đây là lý do tổng số hiển thị ít hơn số dòng thực tế trong Supabase. "
+                        f"Vào bảng bên dưới, kiểm tra dòng có ô Họ và tên trống để bổ sung.{chi_tiet}"
+                    )
             
             # Filter bar
             with st.container():
